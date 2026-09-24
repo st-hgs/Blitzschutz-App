@@ -73,10 +73,11 @@ KATALOG = [
 ]
 
 # ---------------------------------------------------------
-# PDF-GENERATION MIT REPORTLAB (GERADES AKKURATES LAYOUT)
+# PDF-GENERATION MIT REPORTLAB
 # ---------------------------------------------------------
 
 def draw_header_page1(canvas, doc):
+    """ Seite 1: Akkordzettel Header """
     canvas.saveState()
     canvas.setFont("Helvetica-Bold", 16)
     canvas.drawString(12 * mm, 282 * mm, "ITTNER")
@@ -86,6 +87,7 @@ def draw_header_page1(canvas, doc):
     canvas.drawString(12 * mm, 272 * mm, "50933 Köln")
     canvas.drawString(12 * mm, 268 * mm, "Tel. 02 21 / 49 11 820")
     
+    # Kasten oben rechts für Akkordnachweis
     canvas.setLineWidth(0.5)
     canvas.rect(95 * mm, 263 * mm, 103 * mm, 24 * mm)
     canvas.setFont("Helvetica-Bold", 9)
@@ -96,14 +98,15 @@ def draw_header_page1(canvas, doc):
     auftraggeber = st.session_state.get('auftraggeber', '')
     fertig = st.session_state.get('fertig', 'Nein')
     
-    canvas.drawString(98 * mm, 281 * mm, f"BV-Nr.: {bv_nr}")
-    canvas.drawString(145 * mm, 281 * mm, f"Monat: {monat}")
-    canvas.drawString(180 * mm, 281 * mm, f"Fertig: {'[X]' if fertig=='Ja' else '[ ]'}")
+    canvas.drawString(98 * mm, 281 * mm, f"AKKORDZETTEL - BV-Nr.: {bv_nr}")
+    canvas.drawString(155 * mm, 281 * mm, f"Monat: {monat}")
+    canvas.drawString(185 * mm, 281 * mm, f"Fertig: {'[X]' if fertig=='Ja' else '[ ]'}")
     canvas.drawString(98 * mm, 273 * mm, f"Bauvorhaben: {bv}")
     canvas.drawString(98 * mm, 266 * mm, f"Auftraggeber: {auftraggeber}")
     canvas.restoreState()
 
 def draw_header_page2(canvas, doc):
+    """ Seite 2: Stundennachweis Header """
     canvas.saveState()
     canvas.setFont("Helvetica-Bold", 14)
     canvas.drawString(12 * mm, 284 * mm, "ITTNER")
@@ -112,7 +115,7 @@ def draw_header_page2(canvas, doc):
     canvas.drawString(12 * mm, 275 * mm, "Telefon: (02 21) 4 91 18 20 · Telefax: (02 21) 4 97 11 24")
     
     canvas.setFont("Helvetica-Bold", 12)
-    canvas.drawString(12 * mm, 265 * mm, f"Stundennachweis Nr. {st.session_state.get('bv_nr', '')}")
+    canvas.drawString(12 * mm, 265 * mm, f"STUNDENNACHWEIS Nr. {st.session_state.get('bv_nr', '')}")
     
     canvas.setFont("Helvetica", 9)
     canvas.drawString(12 * mm, 257 * mm, f"Auftraggeber: {st.session_state.get('auftraggeber', '')}")
@@ -137,7 +140,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
     story = []
 
     # ---------------------------------------------------------
-    # SEITE 1: AKKORDZETTEL KATALOG
+    # SEITE 1: AKKORDZETTEL (Vorgedruckte Leistungspositionen)
     # ---------------------------------------------------------
     total_items = len(KATALOG)
     items_per_col = (total_items + 2) // 3
@@ -186,7 +189,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
     story.append(t1)
     story.append(Spacer(1, 4 * mm))
 
-    # Monteur-Fußzeile auf Seite 1 (Akkordverteilung)
+    # Monteur-Fußzeile für Akkordverteilung auf Seite 1
     monteur_text_list = []
     for m in monteure:
         if m.get('name'):
@@ -195,7 +198,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
     
     monteur_str = " | ".join(monteur_text_list) if monteur_text_list else "Keine Monteure eingetragen"
     
-    t_foot = Table([[Paragraph(f"<b>Eingesetzte Monteure / Akkordverteilung:</b><br/>{monteur_str}", style_normal)]], colWidths=[194*mm])
+    t_foot = Table([[Paragraph(f"<b>Akkordverteilung / Eingesetzte Monteure:</b><br/>{monteur_str}", style_normal)]], colWidths=[194*mm])
     t_foot.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.5, colors.black),
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FAFAFA")),
@@ -206,7 +209,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
     story.append(PageBreak())
 
     # ---------------------------------------------------------
-    # SEITE 2: STUNDENNACHWEIS & REGIE
+    # SEITE 2: STUNDENNACHWEIS (Regiestunden & Material)
     # ---------------------------------------------------------
     story.append(Spacer(1, 12 * mm))
     
@@ -218,7 +221,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
             Paragraph(str(eintrag.get('stunden', '')), style_normal)
         ])
     
-    while len(stunden_data) < 7:
+    while len(stunden_data) < 8:
         stunden_data.append(["", "", ""])
 
     t_stunden = Table(stunden_data, colWidths=[60*mm, 35*mm, 99*mm])
@@ -237,7 +240,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
     story.append(t_stunden)
     story.append(Spacer(1, 6 * mm))
 
-    mat_data = [["Stück / m", "Materialverbrauch (keine Kurzbezeichnung)"]]
+    mat_data = [["Stück / m", "Zusatz-Materialverbrauch (keine Kurzbezeichnung)"]]
     for mat in zusatz_material:
         mat_data.append([
             Paragraph(str(mat.get('menge', '')), style_normal),
@@ -286,7 +289,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
 
 st.title("⚡ ITTNER Blitzschutz - Erfassung")
 
-# Initialisierung des Monteur-Arrays im Session State (Standard: 1 Monteur vorausgewählt)
+# Initialisierung Monteure im Session State
 if 'monteure_liste' not in st.session_state:
     st.session_state.monteure_liste = [
         {"name": "Tusche Stefan", "rolle": "Obermonteur", "prozent": "100", "stunden": 8.0}
@@ -305,7 +308,7 @@ with st.expander("📌 Bauvorhaben & Kopfdaten", expanded=True):
 
 # DYNAMISCHE MONTEUR-ERFASSUNG
 with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=True):
-    st.caption("Füge hier genau die Anzahl an Monteuren/Helfern hinzu, die vor Ort sind. Unbenutzte Felder einfach nicht anlegen oder leer lassen.")
+    st.caption("Füge hier genau die Anzahl an Monteuren/Helfern hinzu, die vor Ort sind. Unbenutzte Felder einfach löschen oder nicht anlegen.")
     
     neue_liste = []
     for idx, m in enumerate(st.session_state.monteure_liste):
@@ -317,7 +320,6 @@ with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=Tru
         m_prozent = c_m3.text_input(f"% Akkord", value=m.get("prozent", "100"), key=f"m_proz_{idx}")
         m_stunden = c_m4.number_input(f"Std. Anwesend", min_value=0.0, value=float(m.get("stunden", 8.0)), step=0.5, key=f"m_std_{idx}")
         
-        # Löschen Button für einzelnen Monteur (falls mehr als 1)
         if len(st.session_state.monteure_liste) > 1:
             if c_m5.button("🗑️", key=f"del_m_{idx}"):
                 st.session_state.monteure_liste.pop(idx)
@@ -331,12 +333,12 @@ with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=Tru
         st.session_state.monteure_liste.append({"name": "", "rolle": "Monteur", "prozent": "", "stunden": 8.0})
         st.rerun()
 
-tabs = st.tabs(["📋 Akkordzettel (Katalog)", "⏱️ Stundennachweis & Zusatzmaterial", "📄 PDF Generieren"])
+tabs = st.tabs(["📋 Akkordzettel (Vorgedrucktes Material)", "⏱️ Stundennachweis & Regie", "📄 PDF Generieren"])
 
 # TAB 1: AKKORDZETTEL
 mengen_eingabe = {}
 with tabs[0]:
-    st.subheader("Mengen für Akkordpositionen eintragen")
+    st.subheader("Akkordzettel - Mengen eintragen")
     search = st.text_input("🔍 Artikel suchen...", "")
     
     c1, c2, c3 = st.columns(3)
@@ -350,15 +352,14 @@ with tabs[0]:
         if val > 0:
             mengen_eingabe[pos] = val
 
-# TAB 2: REGIE & STUNDEN
+# TAB 2: STUNDENNACHWEIS & REGIE
 regie_liste = st.session_state.get('regie_liste', [])
 zusatz_mat_liste = st.session_state.get('zusatz_mat_liste', [])
 
-# Verfügbare Monteurnamen für Dropdown filtern
 aktive_namen = [m['name'] for m in st.session_state.monteure_liste if m['name'].strip() != ""]
 
 with tabs[1]:
-    st.subheader("Stunden / Regie erfassen")
+    st.subheader("Stundennachweis / Regiestunden erfassen")
     col_r1, col_r2, col_r3 = st.columns([2, 2, 1])
     
     if aktive_namen:
@@ -393,10 +394,10 @@ with tabs[1]:
     if zusatz_mat_liste:
         st.table(zusatz_mat_liste)
 
-# TAB 3: PDF ERSTELLEN & HERUNTERLADEN
+# TAB 3: PDF ERSTELLEN
 with tabs[2]:
     st.subheader("Fertiges PDF-Formular erstellen")
-    st.info("Klicke unten, um die PDF-Datei exakt nach ITTNER-Vorlage mit den eingetragenen Monteuren zu generieren.")
+    st.info("Das generierte PDF erzeugt Seite 1 als Akkordzettel (mit vorgedrucktem Material) und Seite 2 als echten Stundennachweis.")
     
     if st.button("🚀 PDF jetzt erzeugen", type="primary"):
         pdf_bytes = generate_pdf(
