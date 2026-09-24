@@ -72,17 +72,15 @@ KATALOG = [
     ("344", "KSO/Cu"), ("350", "DD/PVC"), ("352", "DD Ziegeldach")
 ]
 
-# Formattierungsliste für Material-Dropdown
 KATALOG_DROPDOWN = ["-- Manuelle Eingabe --"] + [f"{pos} - {name}" for pos, name in KATALOG]
 
-# Helper zur Formatierung der Projektennummer P 42 010 - XXXX
-def get_full_bv_nr(raw_input):
-    clean_input = raw_input.strip()
-    if not clean_input:
-        return "P 42 010 - ____"
-    if clean_input.startswith("P 42 010 -"):
-        return clean_input
-    return f"P 42 010 - {clean_input}"
+# Helper zur Zusammensetzung der Projektnummer ohne Leerzeichen
+def get_full_bv_nr(prefix, sub_nr):
+    prefix_clean = prefix.strip()
+    sub_clean = sub_nr.strip()
+    if not sub_clean:
+        return f"{prefix_clean}____"
+    return f"{prefix_clean}{sub_clean}"
 
 # ---------------------------------------------------------
 # PDF-GENERATION MIT REPORTLAB
@@ -104,7 +102,7 @@ def draw_header_page1(canvas, doc):
     canvas.rect(95 * mm, 263 * mm, 103 * mm, 24 * mm)
     canvas.setFont("Helvetica-Bold", 9)
     
-    bv_nr = get_full_bv_nr(st.session_state.get('bv_nr_sub', ''))
+    bv_nr = get_full_bv_nr(st.session_state.get('bv_nr_prefix', 'P42010-'), st.session_state.get('bv_nr_sub', ''))
     monat = st.session_state.get('monat', '')
     bv = st.session_state.get('bv', '')
     auftraggeber = st.session_state.get('auftraggeber', '')
@@ -126,7 +124,7 @@ def draw_header_page2(canvas, doc):
     canvas.drawString(12 * mm, 279 * mm, "BLITZSCHUTZ GmbH · Widdersdorfer Straße 260 · 50933 Köln")
     canvas.drawString(12 * mm, 275 * mm, "Telefon: (02 21) 4 91 18 20 · Telefax: (02 21) 4 97 11 24")
     
-    bv_nr = get_full_bv_nr(st.session_state.get('bv_nr_sub', ''))
+    bv_nr = get_full_bv_nr(st.session_state.get('bv_nr_prefix', 'P42010-'), st.session_state.get('bv_nr_sub', ''))
     canvas.setFont("Helvetica-Bold", 12)
     canvas.drawString(12 * mm, 265 * mm, f"STUNDENNACHWEIS Nr. {bv_nr}")
     
@@ -302,7 +300,6 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
 
 st.title("⚡ ITTNER Blitzschutz - Erfassung")
 
-# Initialisierung Monteure im Session State
 if 'monteure_liste' not in st.session_state:
     st.session_state.monteure_liste = [
         {"name": "Tusche Stefan", "rolle": "Obermonteur", "prozent": "100", "stunden": 8.0}
@@ -312,8 +309,16 @@ if 'monteure_liste' not in st.session_state:
 with st.expander("📌 Bauvorhaben & Kopfdaten", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        c_p1, c_p2 = st.columns([1.5, 2])
-        c_p1.text_input("Präfix", value="P 42 010 -", disabled=True)
+        c_p1, c_p2 = st.columns([2, 2])
+        # Präfixe ohne Leerzeichen
+        st.session_state['bv_nr_prefix'] = c_p1.selectbox(
+            "Projektleiter-Präfix", 
+            ["P42010-", "P42020-", "P42030-", "P42040-", "Freie Eingabe..."],
+            index=0
+        )
+        if st.session_state['bv_nr_prefix'] == "Freie Eingabe...":
+            st.session_state['bv_nr_prefix'] = c_p1.text_input("Eigener Präfix", value="P")
+
         st.session_state['bv_nr_sub'] = c_p2.text_input("Endnummer (4-stellig)", value=st.session_state.get('bv_nr_sub', ''), placeholder="1234")
         st.session_state['monat'] = st.text_input("Monat", value=st.session_state.get('monat', ''))
         st.session_state['bv'] = st.text_input("Bauvorhaben (Ort/Objekt)", value=st.session_state.get('bv', ''))
@@ -423,7 +428,7 @@ with tabs[1]:
 # TAB 3: PDF ERSTELLEN
 with tabs[2]:
     st.subheader("Fertiges PDF-Formular erstellen")
-    full_bv_nr_display = get_full_bv_nr(st.session_state.get('bv_nr_sub', ''))
+    full_bv_nr_display = get_full_bv_nr(st.session_state.get('bv_nr_prefix', 'P42010-'), st.session_state.get('bv_nr_sub', ''))
     st.info(f"Projektnummer auf PDF: **{full_bv_nr_display}**")
     
     if st.button("🚀 PDF jetzt erzeugen", type="primary"):
@@ -434,7 +439,7 @@ with tabs[2]:
             monteure=st.session_state.monteure_liste
         )
         
-        filename = f"ITTNER_{full_bv_nr_display.replace(' ', '_')}.pdf"
+        filename = f"ITTNER_{full_bv_nr_display}.pdf"
         
         st.download_button(
             label="📥 PDF Herunterladen",
