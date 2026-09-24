@@ -257,6 +257,7 @@ def generate_pdf(projekt, bv_nr, datum, monat, fertig_ja, aufmass_dict, monteur_
 st.set_page_config(page_title="Ittner Erfassungssystem", layout="wide")
 st.title("⚡ Blitzschutz Erfassung & Kalkulator")
 
+# Initialisierung der Session-State Variablen
 if 'free_materials' not in st.session_state:
     st.session_state.free_materials = []
 if 'stunden_eintraege' not in st.session_state:
@@ -284,7 +285,7 @@ with tab_erfassung:
 
     col_m1, col_r1, col_p1, col_h1 = st.columns([2, 1.5, 1, 1])
     with col_m1:
-        m1_name = st.text_input("Monteur 1", "Tschaikow")
+        m1_name = st.text_input("Monteur 1", "Tusche Stefan")
     with col_r1:
         m1_rolle = st.selectbox("Lohngruppe M1", ["Obermonteur", "Monteur", "Helfer"], index=0)
     with col_p1:
@@ -365,6 +366,7 @@ with tab_kalkulation:
     st.header("📊 Abrechnungs-Kalkulator & Decision-Dashboard")
     
     # 1. AKKORDWERT (GESAMT)
+    df_cat = load_ittner_catalog()
     gesamt_akkord_euro = 0.0
     for art_nr, menge_str in st.session_state.aufmass_daten.items():
         zahl_match = re.search(r"[-+]?\d*\.\d+|\d+", menge_str.replace(',', '.'))
@@ -377,7 +379,7 @@ with tab_kalkulation:
 
     # 2. ZUSATZ-STUNDEN (z.B. Transport)
     zusatz_stunden_euro = 0.0
-    for s in stunden_eintraege:
+    for s in st.session_state.get('stunden_eintraege', []):
         try:
             std_val = float(str(s.get("stunden", 0)).replace(',', '.'))
             m_name = s.get("name")
@@ -444,7 +446,7 @@ with tab_kalkulation:
             
             m_zusatz_euro = 0.0
             m_zusatz_std = 0.0
-            for s in stunden_eintraege:
+            for s in st.session_state.get('stunden_eintraege', []):
                 if s.get("name") == m["name"]:
                     try:
                         std = float(str(s.get("stunden", 0)).replace(',', '.'))
