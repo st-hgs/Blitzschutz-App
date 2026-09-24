@@ -56,14 +56,14 @@ def load_ittner_catalog():
     ]
     return pd.DataFrame(data)
 
-# TARIFLICHE LOHNSÄTZE (PUNKT 1 DER ZUSATZLISTE)[cite: 8]
+# LOHNSÄTZE (GEMÄSS TARIF / ZUSATZLISTE PUNKT 1)
 LOHN_SAETZE = {
     "Obermonteur": 21.58,
     "Monteur": 20.57,
     "Helfer": 18.52
 }
 
-# NAHAUSLÖSUNGS-ZONEN (PUNKT 5 DER ZUSATZLISTE)[cite: 8]
+# NAHAUSLÖSUNGS-ZONEN (PUNKT 5 DER ZUSATZLISTE)
 ZONEN_DATEN = {
     "Keine Zone (0-10 km)": 0.0,
     "Zone 1 (>10-15 km) - 8,48 EUR": 8.48,
@@ -255,7 +255,7 @@ def generate_pdf(projekt, bv_nr, datum, monat, fertig_ja, aufmass_dict, monteur_
 
 # --- STREAMLIT OBERFLÄCHE ---
 st.set_page_config(page_title="Ittner Erfassungssystem", layout="wide")
-st.title("Blitzschutz Erfassung & Kalkulation")
+st.title("⚡ Blitzschutz Erfassung & Kalkulator")
 
 if 'free_materials' not in st.session_state:
     st.session_state.free_materials = []
@@ -264,8 +264,9 @@ if 'stunden_eintraege' not in st.session_state:
 if 'aufmass_daten' not in st.session_state:
     st.session_state.aufmass_daten = {}
 
-tab_erfassung, tab_kalkulation = st.tabs(["1. Datenerfassung", "2. Wirtschaftlichkeits-Vergleich"])
+tab_erfassung, tab_kalkulation = st.tabs(["📝 1. Datenerfassung", "📊 2. Wirtschaftlichkeits-Vergleich"])
 
+# TAB 1: DATENERFASSUNG
 with tab_erfassung:
     st.subheader("Stammdaten & Monteure")
     col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
@@ -279,7 +280,6 @@ with tab_erfassung:
         datum = st.text_input("Datum", "20.06.26")
 
     fertig_ja = st.checkbox("Bauvorhaben Fertiggestellt", value=True)
-
     nahausloesung_zone = st.selectbox("Nahausloesung (gem. Zusatzliste Punkt 5)", list(ZONEN_DATEN.keys()))
 
     col_m1, col_r1, col_p1, col_h1 = st.columns([2, 1.5, 1, 1])
@@ -360,11 +360,11 @@ with tab_erfassung:
         )
         st.download_button(label="Download PDF", data=pdf_bytes, file_name=f"Abrechnung_{bv_nr}.pdf", mime="application/pdf")
 
-# TAB 2: KALKULATION UND STEUER-ABZUG
+# TAB 2: DECISION DASHBOARD (2 OPTIONEN)
 with tab_kalkulation:
-    st.header("Gegenueberstellung: Akkord vs. Stundenlohn")
+    st.header("📊 Abrechnungs-Kalkulator & Decision-Dashboard")
     
-    # 1. Akkordwert
+    # 1. AKKORDWERT (GESAMT)
     gesamt_akkord_euro = 0.0
     for art_nr, menge_str in st.session_state.aufmass_daten.items():
         zahl_match = re.search(r"[-+]?\d*\.\d+|\d+", menge_str.replace(',', '.'))
@@ -375,33 +375,88 @@ with tab_kalkulation:
                 preis = row_cat.iloc[0]['preis_euro']
                 gesamt_akkord_euro += (menge_num * preis)
 
-    # 2. Reiner Stundenlohn
-    gesamt_stundenlohn_euro = 0.0
+    # 2. ZUSATZ-STUNDEN (z.B. Transport)
+    zusatz_stunden_euro = 0.0
+    for s in stunden_eintraege:
+        try:
+            std_val = float(str(s.get("stunden", 0)).replace(',', '.'))
+            m_name = s.get("name")
+            m_rolle = "Monteur"
+            for m in monteur_liste:
+                if m["name"] == m_name:
+                    m_rolle = m["rolle"]
+            satz = LOHN_SAETZE.get(m_rolle, 20.57)
+            zusatz_stunden_euro += (std_val * satz)
+        except ValueError:
+            pass
+
+    # 3. REINER STUNDENLOHN (OPTION 2)
+    reiner_stundenlohn_euro = 0.0
     for m in monteur_liste:
         if m["name"]:
             satz = LOHN_SAETZE.get(m["rolle"], 20.57)
-            gesamt_stundenlohn_euro += (m["stunden"] * satz)
+            reiner_stundenlohn_euro += (m["stunden"] * satz)
 
-    # 3. Bereinigte Nahauslöse (Zone minus 14 € Verpflegungsmehraufwand)
-    brutto_zone_wert = ZONEN_DATEN.get(nahausloesung_zone, 0.0)
-    # Wenn eine Zone gezahlt wird, ziehen wir 14€ VMA ab (da VMA steuerlich sowieso zusteht)
-    bereinigte_fahrzeit_ausloese = max(0.0, brutto_zone_wert - 14.0) if brutto_zone_wert > 0 else 0.0
+    # BERECHNUNG DER 2 OPTIONEN
+    opt1_mischung = gesamt_akkord_euro + zusatz_stunden_euro
+    opt2_reiner_stundenlohn = reiner_stundenlohn_euro
 
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric("Verdienst AKKORD", f"{gesamt_akkord_euro:.2f} EUR")
-    kpi2.metric("Verdienst STUNDENLOHN", f"{gesamt_stundenlohn_euro:.2f} EUR")
+    st.subheader("Direkte Gegenüberstellung der Abgabe-Optionen")
+    col_opt1, col_opt2 = st.columns(2)
     
-    effektive_diff = gesamt_akkord_euro - gesamt_stundenlohn_euro
-    kpi3.metric("Akkord-Gewinn/Verlust", f"{effektive_diff:+.2f} EUR")
-
-    st.info(f"**Anmerkung zur Nahausloesung ({nahausloesung_zone}):**\n\n"
-            f"- Brutto-Zone Firma: **{brutto_zone_wert:.2f} EUR**\n"
-            f"- Gesetzlicher VMA (Steuerfrei): **14,00 EUR** (steht euch steuerlich bei >8h Abwesenheit sowieso zu)\n"
-            f"- **Echter Fahrzeit-Bonus für den Vergleich:** **{bereinigte_fahrzeit_ausloese:.2f} EUR**")
+    with col_opt1:
+        st.markdown("### 🔀 Option 1: Akkord + Zusatzstunden")
+        st.caption("Akkordzettel (Seite 1) + evtl. Transport-/Zusatzstunden (Seite 2)")
+        st.metric("Auszahlung Gesamt", f"{opt1_mischung:.2f} EUR")
+        st.write(f"- Montage-Akkord: **{gesamt_akkord_euro:.2f} EUR**")
+        st.write(f"- Transport/Regie: **{zusatz_stunden_euro:.2f} EUR**")
+        
+    with col_opt2:
+        st.markdown("### ⏱️ Option 2: Reiner Stundenzettel")
+        st.caption("Komplette Baustellenzeit auf Stundenlohn (Seite 2)")
+        st.metric("Auszahlung Gesamt", f"{opt2_reiner_stundenlohn:.2f} EUR")
+        st.write(f"- Gesamtstunden laut Anwesenheit")
+        st.write(f"- Abrechnung nach Tarif-Lohngruppe")
 
     st.markdown("---")
-    if gesamt_akkord_euro > gesamt_stundenlohn_euro:
-        st.success(f"**EMPFEHLUNG: AKKORDZETTEL ABGEBEN!**\n\nIhr liegt im Akkord **{effektive_diff:.2f} EUR HÖHER** als im reinen Stundenlohn!")
-    elif gesamt_akkord_euro < gesamt_stundenlohn_euro and gesamt_akkord_euro > 0:
-        st.warning(f"**WARNUNG: AKKORD LOHNT SICH NICHT!**\n\nIhr liegt **{-effektive_diff:.2f} EUR UNTER** dem Stundenlohn.\n\n"
-                   f"**Empfehlung:** Stundenzettel einreichen oder Erschwernis-Stunden (z.B. Materialtransport aufs Dach) dazubuchen!")
+    
+    # EMPFEHLUNG
+    if opt1_mischung >= opt2_reiner_stundenlohn and opt1_mischung > 0:
+        vorteil = opt1_mischung - opt2_reiner_stundenlohn
+        st.success(f"💡 **EMPFEHLUNG: OPTION 1 EINREICHEN (Akkordzettel + Zusatzstunden)**\n\n"
+                   f"Ihr liegt bei Option 1 um **{vorteil:.2f} EUR HÖHER** als beim reinen Stundenlohn!")
+    elif opt2_reiner_stundenlohn > opt1_mischung:
+        nachteil = opt2_reiner_stundenlohn - opt1_mischung
+        st.warning(f"⚠️ **EMPFEHLUNG: OPTION 2 EINREICHEN (Reiner Stundenzettel)**\n\n"
+                   f"Der Akkord inkl. Zusatzstunden liegt **{nachteil:.2f} EUR UNTER** "
+                   f"eurem reinen Stundenlohn-Anspruch ({opt2_reiner_stundenlohn:.2f} EUR).\n\n"
+                   f"Reicht in diesem Fall nur den **Stundenzettel (Seite 2)** ein.")
+
+    # DETAIL-AUSZAHLUNG PRO MONTEUR FÜR OPTION 1
+    st.markdown("---")
+    st.subheader("Detail-Auszahlung pro Monteur für Option 1")
+    
+    col_det1, col_det2 = st.columns(2)
+    for i, m in enumerate(monteur_liste):
+        if m["name"]:
+            p_val = float(str(m["prozent"]).replace(',', '.')) if m["prozent"] else 0.0
+            m_akkord_anteil = gesamt_akkord_euro * (p_val / 100.0)
+            
+            m_zusatz_euro = 0.0
+            m_zusatz_std = 0.0
+            for s in stunden_eintraege:
+                if s.get("name") == m["name"]:
+                    try:
+                        std = float(str(s.get("stunden", 0)).replace(',', '.'))
+                        m_zusatz_std += std
+                        m_zusatz_euro += std * LOHN_SAETZE.get(m["rolle"], 20.57)
+                    except ValueError:
+                        pass
+            
+            m_gesamt = m_akkord_anteil + m_zusatz_euro
+            
+            with col_det1 if i == 0 else col_det2:
+                st.info(f"**{m['name']}** ({m['rolle']})\n\n"
+                        f"- Akkord-Anteil ({p_val}%): **{m_akkord_anteil:.2f} EUR**\n"
+                        f"- Transport/Regie ({m_zusatz_std}h): **{m_zusatz_euro:.2f} EUR**\n"
+                        f"- **Auszahlung Monteur: {m_gesamt:.2f} EUR**")
