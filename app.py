@@ -257,8 +257,14 @@ if 'monteure' not in st.session_state:
         {'name': 'Monteur 1', 'rolle': 'Monteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Monteur']}
     ]
 
+# Callback für direkte Satzänderung bei Rollenwechsel im UI
+def update_stundensatz_callback(idx):
+    neue_rolle = st.session_state[f"m_rolle_{idx}"]
+    st.session_state.monteure[idx]['rolle'] = neue_rolle
+    st.session_state.monteure[idx]['satz'] = LOHN_ROLLEN[neue_rolle]
+
 # ==========================================
-# 4. PDF GENERATOR FUNCTION
+# 4. PDF GENERATION FUNCTION
 # ==========================================
 def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_gesamt, akkord_gesamt, faktor):
     buffer = io.BytesIO()
@@ -332,10 +338,10 @@ def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_ge
     
     for _, row in df_mont.iterrows():
         mont_data.append([
-            Paragraph(str(row['Name']), cell_style),
-            Paragraph(str(row.get('Rolle', 'Monteur')), cell_style),
-            Paragraph(f"{row['Stunden']:.2f}", cell_style),
-            Paragraph(f"{row['Satz']:.2f}", cell_style),
+            Paragraph(str(row['name']), cell_style),
+            Paragraph(str(row.get('rolle', 'Monteur')), cell_style),
+            Paragraph(f"{row['stunden']:.2f}", cell_style),
+            Paragraph(f"{row['satz']:.2f}", cell_style),
             Paragraph(f"{row['Kosten']:.2f}", cell_style)
         ])
 
@@ -511,13 +517,21 @@ with col_m_left:
         cm1, cm2, cm3, cm4 = st.columns([2, 2, 1, 1.5])
         
         name_val = cm1.text_input(f"Name", value=m.get('name', f'Monteur {idx+1}'), key=f"m_name_{idx}")
-        rolle_val = cm2.selectbox("Rolle", options=list(LOHN_ROLLEN.keys()), index=list(LOHN_ROLLEN.keys()).index(m.get('rolle', 'Monteur')), key=f"m_rolle_{idx}")
         
-        # Automatische Satzermittlung bei Rollenwechsel
-        auto_satz = LOHN_ROLLEN[rolle_val]
+        # Rollenauswahl mit Callback -> aktualisiert den Stundensatz sofort sichtbar auf dem Bildschirm
+        rolle_val = cm2.selectbox(
+            "Rolle", 
+            options=list(LOHN_ROLLEN.keys()), 
+            index=list(LOHN_ROLLEN.keys()).index(m.get('rolle', 'Monteur')), 
+            key=f"m_rolle_{idx}",
+            on_change=update_stundensatz_callback,
+            args=(idx,)
+        )
+        
         stunden_val = cm3.number_input("Std.", value=float(m.get('stunden', 8.0)), step=0.5, key=f"m_std_{idx}")
-        satz_val = cm4.number_input("Stundensatz", value=float(m.get('satz', auto_satz)), step=0.5, key=f"m_satz_{idx}")
+        satz_val = cm4.number_input("Stundensatz (€)", value=float(m.get('satz', LOHN_ROLLEN[rolle_val])), step=0.5, key=f"m_satz_{idx}")
         
+        # Session-State konsistent als Kleinschreibung sichern
         st.session_state.monteure[idx] = {
             'name': name_val,
             'rolle': rolle_val,
@@ -529,9 +543,12 @@ with col_m_left:
         st.session_state.monteure.append({'name': f'Monteur {len(st.session_state.monteure)+1}', 'rolle': 'Monteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Monteur']})
         st.rerun()
 
+# Robuster Pandas-Aufbau (verhindert den KeyError)
 df_mont = pd.DataFrame(st.session_state.monteure)
-if not df_mont.empty:
-    df_mont['Kosten'] = df_mont['Stunden'] * df_mont['Satz']
+if not df_mont.empty and 'stunden' in df_mont.columns and 'satz' in df_mont.columns:
+    df_mont['Kosten'] = df_mont['stunden'] * df_mont['satz']
+else:
+    df_mont = pd.DataFrame(columns=['name', 'rolle', 'stunden', 'satz', 'Kosten'])
 
 st.markdown("---")
 
