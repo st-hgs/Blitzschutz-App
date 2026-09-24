@@ -235,7 +235,7 @@ def generate_pdf(projekt, pruefer, datum, messgeraet, re_wert, durchgang, aufmas
     
     # Header
     story.append(Paragraph("Ittner Blitzschutz GmbH", title_style))
-    story.append(Paragraph("Messprotokoll & Aufmaßblatt (DIN 18014 / DIN EN 62305)", styles['Subtitle']))
+    story.append(Paragraph("Messprotokoll & Aufmaßblatt (DIN 18014 / DIN EN 62305)", h2_style))
     story.append(Spacer(1, 15))
     
     # Stammdaten-Tabelle
