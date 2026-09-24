@@ -8,73 +8,80 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # Page Config für Smartphone-Optimierung
 st.set_page_config(
-    page_title="ITTNER Blitzschutz - Abrechnung",
+    page_title="ITTNER Blitzschutz - Abrechnung & Kalkulation",
     page_icon="⚡",
     layout="wide"
 )
 
 # ---------------------------------------------------------
-# KATALOG-DATEN (3 Spalten gemäß ITTNER-Vorlage)
+# KATALOG-DATEN MIT AKKORD-RICHTSÄTZEN (€ pro Einbau)
 # ---------------------------------------------------------
 KATALOG = [
+    # (Pos, Bezeichnung, Richtwert_Euro)
     # Spalte 1
-    ("001", "EL/BE 30x3,5mm verz."), ("002", "EL/10mm verz."), ("004", "EL/BE V4A"),
-    ("006", "EL/V4A 10mm"), ("010", "FE/EL 10mm verz."), ("011", "FE/BE 30x3,5mm verz."),
-    ("015", "Blitzstromanker"), ("024", "Diagonal verz."), ("025", "Diagonal VA"),
-    ("026", "KV/10/VA"), ("028", "Armierungsklemmen"), ("029", "MV KL.VA Rd.10mm"),
-    ("030", "Denso"), ("036", "EG/1"), ("037", "EG/2 Rasen"), ("038", "EG/3 Pflaster"),
-    ("039", "EG/4 Kleinpflaster"), ("040", "EG/5 Zementpl.Kies"), ("041", "EG/6 Zementpl.Beton"),
-    ("042", "EG/7 Verbundpflaster"), ("043", "EG/8 Asphalt"), ("044", "EG/9 Betonfuge"),
-    ("051", "Erdeinf. Flach"), ("054", "EST/Mess./Kupfer"), ("055", "TKA/Guss"),
-    ("056", "Wanddurchführung"), ("057", "Rev. Türe VA"), ("058", "Erdungsfestpunkt"),
-    ("060", "PK-16/8/MS"), ("061", "Prüfkupplung Al"), ("062", "PK 8/8/verz."),
-    ("063", "Nummern"), ("064", "Trennklemme Vario"), ("065", "Pot-Schiene 6-loch"),
-    ("066", "Pot-Schiene, klein"), ("067", "Pot-Schiene, groß"), ("068", "Vario verz."),
-    ("069", "Prüfk. mit Winkel"), ("070", "Anschl. E"), ("072", "Vario Cu"),
-    ("074", "Tief/20mm, 1m verz."), ("075", "Tief/20mm, 1,5m"), ("076", "Tief/25mm"),
-    ("080", "Tief/20mm, 1m VA"), ("081", "Tief/20mm1,5m ,VA"), ("106", "OL/8/Alu Flach"),
-    ("107", "OL/8/Alu Steil"), ("108", "Abl./8/Alu"), ("109", "Abl./8/Alu PVC"),
-    ("112", "OL/8/Cu"), ("114", "Abl./10/verz."),
+    ("001", "EL/BE 30x3,5mm verz.", 4.50), ("002", "EL/10mm verz.", 4.20), ("004", "EL/BE V4A", 5.50),
+    ("006", "EL/V4A 10mm", 5.20), ("010", "FE/EL 10mm verz.", 4.00), ("011", "FE/BE 30x3,5mm verz.", 4.50),
+    ("015", "Blitzstromanker", 6.00), ("024", "Diagonal verz.", 3.50), ("025", "Diagonal VA", 4.50),
+    ("026", "KV/10/VA", 3.00), ("028", "Armierungsklemmen", 2.50), ("029", "MV KL.VA Rd.10mm", 2.80),
+    ("030", "Denso", 2.00), ("036", "EG/1", 8.00), ("037", "EG/2 Rasen", 9.50), ("038", "EG/3 Pflaster", 12.00),
+    ("039", "EG/4 Kleinpflaster", 14.00), ("040", "EG/5 Zementpl.Kies", 10.00), ("041", "EG/6 Zementpl.Beton", 15.00),
+    ("042", "EG/7 Verbundpflaster", 13.00), ("043", "EG/8 Asphalt", 18.00), ("044", "EG/9 Betonfuge", 16.00),
+    ("051", "Erdeinf. Flach", 6.50), ("054", "EST/Mess./Kupfer", 7.00), ("055", "TKA/Guss", 8.50),
+    ("056", "Wanddurchführung", 9.00), ("057", "Rev. Türe VA", 12.00), ("058", "Erdungsfestpunkt", 6.00),
+    ("060", "PK-16/8/MS", 4.00), ("061", "Prüfkupplung Al", 3.50), ("062", "PK 8/8/verz.", 3.50),
+    ("063", "Nummern", 1.50), ("064", "Trennklemme Vario", 3.80), ("065", "Pot-Schiene 6-loch", 8.00),
+    ("066", "Pot-Schiene, klein", 6.00), ("067", "Pot-Schiene, groß", 10.00), ("068", "Vario verz.", 3.50),
+    ("069", "Prüfk. mit Winkel", 4.50), ("070", "Anschl. E", 3.00), ("072", "Vario Cu", 4.50),
+    ("074", "Tief/20mm, 1m verz.", 12.00), ("075", "Tief/20mm, 1,5m", 15.00), ("076", "Tief/25mm", 18.00),
+    ("080", "Tief/20mm, 1m VA", 16.00), ("081", "Tief/20mm1,5m ,VA", 20.00), ("106", "OL/8/Alu Flach", 3.50),
+    ("107", "OL/8/Alu Steil", 4.50), ("108", "Abl./8/Alu", 3.80), ("109", "Abl./8/Alu PVC", 4.20),
+    ("112", "OL/8/Cu", 5.00), ("114", "Abl./10/verz.", 4.00),
     # Spalte 2
-    ("117", "Abl./BE 30x3,5mm"), ("118", "OL/V4A Rd.10mm"), ("127", "OL/Rd. 10mm"),
-    ("128", "OL/BE 30x3,5mm"), ("130", "OL/Band VA"), ("140", "Steildachzulage"),
-    ("141", "Zulage Leiter"), ("149", "OL/alt richten"), ("150", "Demontage"),
-    ("158", "FS 3m Alu"), ("159", "FS 1,5m Cu"), ("160", "FS 1,5m Alu"),
-    ("161", "KFS/Alu"), ("162", "FS 1,0m, VA"), ("165", "FS Kamin Cu"),
-    ("166", "FS 2,0m Alu"), ("167", "FS 2,5m Alu"), ("168", "FS 4,0m Alu"),
-    ("169", "FS 5,0m Alu"), ("170", "Betonsockel"), ("171", "Auf-Sp. verz."),
-    ("172", "Auf-Sp. Cu"), ("173", "FS 1,5m + Sockel"), ("174", "FS 2,0m + Sockel"),
-    ("175", "FS 2,5m + Sockel"), ("176", "FS 3,0m + Sockel"), ("177", "Distanz 690/16"),
-    ("178", "Distanz 1030/16"), ("179", "Distanz 690/8"), ("180", "Alu-Brücken"),
-    ("181", "Alu/La."), ("182", "Stangenkl. FS"), ("183", "Kupferlasche"),
-    ("184", "Winkel VA"), ("186", "Anla/Schweißen"), ("187", "Brücke flex, rund"),
-    ("188", "Brücke flex, Band"), ("189", "Anla/Schrauben"), ("191", "Anschlussset 6mm"),
-    ("192", "Anschlussset 8mm"), ("193", "SS/Niro.Kl."), ("195", "SS/Cu"),
-    ("217", "FS/Niro/Kl."), ("219", "FS/Cu/Kl."), ("230", "PS/a"),
-    ("235", "PS/a m. Klipschelle"), ("238", "PS/a alt"), ("242", "PS/b"),
-    ("246", "WAS"), ("247", "SDS"), ("248", "Schieferstützen CU"),
+    ("117", "Abl./BE 30x3,5mm", 4.50), ("118", "OL/V4A Rd.10mm", 5.50), ("127", "OL/Rd. 10mm", 4.00),
+    ("128", "OL/BE 30x3,5mm", 4.50), ("130", "OL/Band VA", 5.00), ("140", "Steildachzulage", 8.00),
+    ("141", "Zulage Leiter", 6.00), ("149", "OL/alt richten", 3.00), ("150", "Demontage", 2.50),
+    ("158", "FS 3m Alu", 12.00), ("159", "FS 1,5m Cu", 10.00), ("160", "FS 1,5m Alu", 8.00),
+    ("161", "KFS/Alu", 7.00), ("162", "FS 1,0m, VA", 9.00), ("165", "FS Kamin Cu", 11.00),
+    ("166", "FS 2,0m Alu", 9.50), ("167", "FS 2,5m Alu", 11.00), ("168", "FS 4,0m Alu", 15.00),
+    ("169", "FS 5,0m Alu", 18.00), ("170", "Betonsockel", 5.00), ("171", "Auf-Sp. verz.", 4.00),
+    ("172", "Auf-Sp. Cu", 5.50), ("173", "FS 1,5m + Sockel", 13.00), ("174", "FS 2,0m + Sockel", 14.50),
+    ("175", "FS 2,5m + Sockel", 16.00), ("176", "FS 3,0m + Sockel", 17.00), ("177", "Distanz 690/16", 6.00),
+    ("178", "Distanz 1030/16", 7.50), ("179", "Distanz 690/8", 5.50), ("180", "Alu-Brücken", 4.00),
+    ("181", "Alu/La.", 3.50), ("182", "Stangenkl. FS", 3.00), ("183", "Kupferlasche", 4.50),
+    ("184", "Winkel VA", 4.00), ("186", "Anla/Schweißen", 10.00), ("187", "Brücke flex, rund", 5.00),
+    ("188", "Brücke flex, Band", 5.50), ("189", "Anla/Schrauben", 4.00), ("191", "Anschlussset 6mm", 6.00),
+    ("192", "Anschlussset 8mm", 6.50), ("193", "SS/Niro.Kl.", 3.50), ("195", "SS/Cu", 4.50),
+    ("217", "FS/Niro/Kl.", 4.00), ("219", "FS/Cu/Kl.", 5.00), ("230", "PS/a", 3.00),
+    ("235", "PS/a m. Klipschelle", 3.50), ("238", "PS/a alt", 2.50), ("242", "PS/b", 3.20),
+    ("246", "WAS", 4.00), ("247", "SDS", 4.00), ("248", "Schieferstützen CU", 5.50),
     # Spalte 3
-    ("260", "WS 8/16/verz."), ("262", "WS 8/16/CU"), ("263", "WS Erdeinführung"),
-    ("264", "WS Band VA"), ("266", "WS 8/16/PVC"), ("267", "Stangenhalter VA 16mm"),
-    ("268", "WS verzinkt 8mm"), ("269", "WS Kupfer 8mm"), ("270", "Stangenh. verz. 16mm"),
-    ("271", "Stangenh. Cu 16mm"), ("272", "Überleger Alu"), ("273", "Überleger VA"),
-    ("274", "Klebepad"), ("275", "Kontasch. VA"), ("277", "Kontasch. Cu"),
-    ("288", "Rohrschelle EX 21+22"), ("289", "Rohrschelle EX 22"), ("292", "FU/ex"),
-    ("294", "Rohrschelle VA"), ("295", "Rohrschelle verz."), ("297", "Bandschelle"),
-    ("298", "RS Tiefenerder verz."), ("299", "RS Tiefenerder VA"), ("300", "AS/verz."),
-    ("301", "AS/Alu"), ("302", "AS/Cu"), ("304", "DK/VA"), ("305", "DK/verz."),
-    ("306", "DK/Alu"), ("307", "DK/Ms."), ("309", "FK/VA"), ("310", "FK/verz."),
-    ("311", "FK/Cu"), ("312", "FK/Kalzip"), ("314", "TA VA"), ("315", "TA verz."),
-    ("316", "Schneefanggitter"), ("327", "KV/8/Cu/BiMetall"), ("329", "Uni/Alu"),
-    ("330", "Uni/Cu"), ("331", "MV Va mit Nase"), ("332", "Muffe 8mm Alu"),
-    ("333", "Muffe 8mm Cu"), ("334", "Muffe 16mm Alu"), ("340", "KSE/verz."),
-    ("341", "KSE/Mes."), ("342", "KSE/NIRO"), ("343", "KSO/verz."),
-    ("344", "KSO/Cu"), ("350", "DD/PVC"), ("352", "DD Ziegeldach")
+    ("260", "WS 8/16/verz.", 3.00), ("262", "WS 8/16/CU", 4.20), ("263", "WS Erdeinführung", 4.00),
+    ("264", "WS Band VA", 4.50), ("266", "WS 8/16/PVC", 3.50), ("267", "Stangenhalter VA 16mm", 5.00),
+    ("268", "WS verzinkt 8mm", 3.00), ("269", "WS Kupfer 8mm", 4.20), ("270", "Stangenh. verz. 16mm", 4.50),
+    ("271", "Stangenh. Cu 16mm", 5.50), ("272", "Überleger Alu", 2.50), ("273", "Überleger VA", 3.50),
+    ("274", "Klebepad", 2.00), ("275", "Kontasch. VA", 3.00), ("277", "Kontasch. Cu", 4.00),
+    ("288", "Rohrschelle EX 21+22", 6.00), ("289", "Rohrschelle EX 22", 6.00), ("292", "FU/ex", 5.00),
+    ("294", "Rohrschelle VA", 5.50), ("295", "Rohrschelle verz.", 4.50), ("297", "Bandschelle", 4.00),
+    ("298", "RS Tiefenerder verz.", 5.00), ("299", "RS Tiefenerder VA", 6.50), ("300", "AS/verz.", 3.50),
+    ("301", "AS/Alu", 3.50), ("302", "AS/Cu", 4.80), ("304", "DK/VA", 3.50), ("305", "DK/verz.", 2.80),
+    ("306", "DK/Alu", 3.00), ("307", "DK/Ms.", 3.80), ("309", "FK/VA", 3.50), ("310", "FK/verz.", 2.80),
+    ("311", "FK/Cu", 4.50), ("312", "FK/Kalzip", 5.00), ("314", "TA VA", 3.50), ("315", "TA verz.", 2.80),
+    ("316", "Schneefanggitter", 7.00), ("327", "KV/8/Cu/BiMetall", 5.00), ("329", "Uni/Alu", 3.20),
+    ("330", "Uni/Cu", 4.50), ("331", "MV Va mit Nase", 3.80), ("332", "Muffe 8mm Alu", 2.50),
+    ("333", "Muffe 8mm Cu", 3.50), ("334", "Muffe 16mm Alu", 3.00), ("340", "KSE/verz.", 3.50),
+    ("341", "KSE/Mes.", 4.20), ("342", "KSE/NIRO", 4.50), ("343", "KSO/verz.", 3.50),
+    ("344", "KSO/Cu", 4.80), ("350", "DD/PVC", 4.00), ("352", "DD Ziegeldach", 5.00)
 ]
 
-KATALOG_DROPDOWN = ["-- Manuelle Eingabe --"] + [f"{pos} - {name}" for pos, name in KATALOG]
+KATALOG_DICT = {pos: {"name": name, "satz": satz} for pos, name, satz in KATALOG}
+KATALOG_DROPDOWN = ["-- Manuelle Eingabe --"] + [f"{pos} - {name}" for pos, name, _ in KATALOG]
 
-# Helper zur Zusammensetzung der Projektnummer ohne Leerzeichen
+STD_SAETZE = {
+    "Obermonteur": 28.00,
+    "Monteur": 24.00,
+    "Helfer": 18.00
+}
+
 def get_full_bv_nr(prefix, sub_nr):
     prefix_clean = prefix.strip()
     sub_clean = sub_nr.strip()
@@ -83,11 +90,9 @@ def get_full_bv_nr(prefix, sub_nr):
     return f"{prefix_clean}{sub_clean}"
 
 # ---------------------------------------------------------
-# PDF-GENERATION MIT REPORTLAB
+# PDF-GENERATION
 # ---------------------------------------------------------
-
 def draw_header_page1(canvas, doc):
-    """ Seite 1: Akkordzettel Header """
     canvas.saveState()
     canvas.setFont("Helvetica-Bold", 16)
     canvas.drawString(12 * mm, 282 * mm, "ITTNER")
@@ -97,7 +102,6 @@ def draw_header_page1(canvas, doc):
     canvas.drawString(12 * mm, 268 * mm, "50933 Köln")
     canvas.drawString(12 * mm, 264 * mm, "Tel. 02 21 / 49 11 820")
     
-    # Kasten oben rechts für Akkordnachweis
     canvas.setLineWidth(0.5)
     canvas.rect(95 * mm, 263 * mm, 103 * mm, 24 * mm)
     canvas.setFont("Helvetica-Bold", 9)
@@ -116,7 +120,6 @@ def draw_header_page1(canvas, doc):
     canvas.restoreState()
 
 def draw_header_page2(canvas, doc):
-    """ Seite 2: Stundennachweis Header """
     canvas.saveState()
     canvas.setFont("Helvetica-Bold", 14)
     canvas.drawString(12 * mm, 284 * mm, "ITTNER")
@@ -136,12 +139,7 @@ def draw_header_page2(canvas, doc):
 def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=8 * mm,
-        rightMargin=8 * mm,
-        topMargin=32 * mm,
-        bottomMargin=8 * mm
+        buffer, pagesize=A4, leftMargin=8 * mm, rightMargin=8 * mm, topMargin=32 * mm, bottomMargin=8 * mm
     )
     
     styles = getSampleStyleSheet()
@@ -150,12 +148,9 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
 
     story = []
 
-    # ---------------------------------------------------------
-    # SEITE 1: AKKORDZETTEL (Vorgedruckte Leistungspositionen)
-    # ---------------------------------------------------------
+    # Seite 1: Akkordzettel
     total_items = len(KATALOG)
     items_per_col = (total_items + 2) // 3
-    
     col1 = KATALOG[:items_per_col]
     col2 = KATALOG[items_per_col:items_per_col*2]
     col3 = KATALOG[items_per_col*2:]
@@ -171,19 +166,14 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
         row = []
         for col in [col1, col2, col3]:
             if i < len(col):
-                pos, name = col[i]
+                pos, name, _ = col[i]
                 menge = str(data_mengen.get(pos, "")) if data_mengen.get(pos, 0) > 0 else ""
-                row.extend([
-                    Paragraph(pos, style_bold),
-                    Paragraph(name, style_normal),
-                    Paragraph(menge, style_bold)
-                ])
+                row.extend([Paragraph(pos, style_bold), Paragraph(name, style_normal), Paragraph(menge, style_bold)])
             else:
                 row.extend(["", "", ""])
         table_data.append(row)
 
     col_widths = [8*mm, 44*mm, 12*mm] * 3
-    
     t1 = Table(table_data, colWidths=col_widths, repeatRows=1)
     t1.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.5, colors.black),
@@ -196,11 +186,9 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
         ('TOPPADDING', (0,0), (-1,-1), 1),
         ('BOTTOMPADDING', (0,0), (-1,-1), 1),
     ]))
-    
     story.append(t1)
     story.append(Spacer(1, 4 * mm))
 
-    # Monteur-Fußzeile für Akkordverteilung auf Seite 1
     monteur_text_list = []
     for m in monteure:
         if m.get('name'):
@@ -208,7 +196,6 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
             monteur_text_list.append(f"<b>{m['rolle']}:</b> {m['name']}{proz}")
     
     monteur_str = " | ".join(monteur_text_list) if monteur_text_list else "Keine Monteure eingetragen"
-    
     t_foot = Table([[Paragraph(f"<b>Akkordverteilung / Eingesetzte Monteure:</b><br/>{monteur_str}", style_normal)]], colWidths=[194*mm])
     t_foot.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.5, colors.black),
@@ -219,11 +206,8 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
 
     story.append(PageBreak())
 
-    # ---------------------------------------------------------
-    # SEITE 2: STUNDENNACHWEIS (Regiestunden & Material)
-    # ---------------------------------------------------------
+    # Seite 2: Stundennachweis
     story.append(Spacer(1, 12 * mm))
-    
     stunden_data = [["Name des Monteurs", "Datum", "Arbeitsstunden / Beschreibung"]]
     for eintrag in regie_stunden:
         stunden_data.append([
@@ -241,7 +225,6 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
         ('INNERGRID', (0,0), (-1,-1), 0.3, colors.grey),
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E0E0E0")),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
         ('BOTTOMPADDING', (0,0), (-1,-1), 3),
         ('TOPPADDING', (0,0), (-1,-1), 3),
     ]))
@@ -253,10 +236,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
 
     mat_data = [["Stück / m", "Zusatz-Materialverbrauch (keine Kurzbezeichnung)"]]
     for mat in zusatz_material:
-        mat_data.append([
-            Paragraph(str(mat.get('menge', '')), style_normal),
-            Paragraph(mat.get('bezeichnung', ''), style_normal)
-        ])
+        mat_data.append([Paragraph(str(mat.get('menge', '')), style_normal), Paragraph(mat.get('bezeichnung', ''), style_normal)])
     
     while len(mat_data) < 10:
         mat_data.append(["", ""])
@@ -267,7 +247,6 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
         ('INNERGRID', (0,0), (-1,-1), 0.3, colors.grey),
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E0E0E0")),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
         ('BOTTOMPADDING', (0,0), (-1,-1), 3),
         ('TOPPADDING', (0,0), (-1,-1), 3),
     ]))
@@ -283,10 +262,7 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
         ["Unterschrift Monteur / Sachbearbeiter", "Unterschrift Auftraggeber / Bevollmächtigter"]
     ]
     t_sig = Table(sig_data, colWidths=[97*mm, 97*mm])
-    t_sig.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
-    ]))
+    t_sig.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('FONTSIZE', (0,0), (-1,-1), 8)]))
     story.append(t_sig)
 
     doc.build(story, onFirstPage=draw_header_page1, onLaterPages=draw_header_page2)
@@ -298,11 +274,21 @@ def generate_pdf(data_mengen, regie_stunden, zusatz_material, monteure):
 # STREAMLIT APP OBERFLÄCHE
 # ---------------------------------------------------------
 
-st.title("⚡ ITTNER Blitzschutz - Erfassung")
+st.title("⚡ ITTNER Blitzschutz - Erfassung & Kalkulation")
+
+# EINSTELLUNGEN STUNDENSÄTZE
+st.sidebar.header("⚙️ Stundenlohn-Gruppen")
+std_ober = st.sidebar.number_input("Stundenlohn Obermonteur (€)", value=STD_SAETZE["Obermonteur"], step=1.0)
+std_mont = st.sidebar.number_input("Stundenlohn Monteur (€)", value=STD_SAETZE["Monteur"], step=1.0)
+std_helf = st.sidebar.number_input("Stundenlohn Helfer (€)", value=STD_SAETZE["Helfer"], step=1.0)
+
+stundensaetze = {"Obermonteur": std_ober, "Monteur": std_mont, "Helfer": std_helf}
 
 if 'monteure_liste' not in st.session_state:
     st.session_state.monteure_liste = [
-        {"name": "Tusche Stefan", "rolle": "Obermonteur", "prozent": "100", "stunden": 8.0}
+        {"name": "Tusche Stefan", "rolle": "Obermonteur", "prozent": "100", "stunden": 8.0},
+        {"name": "Monteur 2", "rolle": "Monteur", "prozent": "0", "stunden": 6.0},
+        {"name": "Monteur 3", "rolle": "Helfer", "prozent": "0", "stunden": 1.0}
     ]
 
 # Kopfdaten Eingabe
@@ -310,11 +296,8 @@ with st.expander("📌 Bauvorhaben & Kopfdaten", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
         c_p1, c_p2 = st.columns([2, 2])
-        # Präfixe ohne Leerzeichen
         st.session_state['bv_nr_prefix'] = c_p1.selectbox(
-            "Projektleiter-Präfix", 
-            ["P42010-", "P42020-", "P42030-", "P42040-", "Freie Eingabe..."],
-            index=0
+            "Projektleiter-Präfix", ["P42010-", "P42020-", "P42030-", "P42040-", "Freie Eingabe..."], index=0
         )
         if st.session_state['bv_nr_prefix'] == "Freie Eingabe...":
             st.session_state['bv_nr_prefix'] = c_p1.text_input("Eigener Präfix", value="P")
@@ -326,9 +309,14 @@ with st.expander("📌 Bauvorhaben & Kopfdaten", expanded=True):
         st.session_state['auftraggeber'] = st.text_input("Auftraggeber", value=st.session_state.get('auftraggeber', ''))
         st.session_state['fertig'] = st.radio("Fertiggestellt?", ["Nein", "Ja"], horizontal=True)
 
-# DYNAMISCHE MONTEUR-ERFASSUNG
-with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=True):
-    st.caption("Füge hier genau die Anzahl an Monteuren/Helfern hinzu, die vor Ort sind.")
+# MONTEUR-ERFASSUNG MIT AUTOMATISCHER PROZENTBERECHNUNG NACH STUNDEN
+with st.expander("👷 Monteure & Anwesenheit auf der Baustelle", expanded=True):
+    st.caption("Trage die Anwesenheitsstunden jedes Monteurs ein. Die Akkord-Prozente werden automatisch nach Zeitaufwand berechnet.")
+    
+    auto_prozent = st.checkbox("⚡ %-Akkordanteil automatisch aus Anwesenheitsstunden berechnen", value=True)
+    
+    # Vorab-Berechnung der Gesamtstunden für Prozentrechnung
+    gesamt_anwesend_std = sum(float(m.get("stunden", 0.0)) for m in st.session_state.monteure_liste)
     
     neue_liste = []
     for idx, m in enumerate(st.session_state.monteure_liste):
@@ -337,9 +325,16 @@ with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=Tru
         
         m_name = c_m1.text_input(f"Name", value=m.get("name", ""), key=f"m_name_{idx}")
         m_rolle = c_m2.selectbox(f"Lohngruppe", ["Obermonteur", "Monteur", "Helfer"], index=["Obermonteur", "Monteur", "Helfer"].index(m.get("rolle", "Monteur")), key=f"m_rolle_{idx}")
-        m_prozent = c_m3.text_input(f"% Akkord", value=m.get("prozent", "100"), key=f"m_proz_{idx}")
-        m_stunden = c_m4.number_input(f"Std. Anwesend", min_value=0.0, value=float(m.get("stunden", 8.0)), step=0.5, key=f"m_std_{idx}")
+        m_stunden = c_m3.number_input(f"Anwesend (Std.)", min_value=0.0, value=float(m.get("stunden", 8.0)), step=0.5, key=f"m_std_{idx}")
         
+        # Automatische % Berechnung
+        if auto_prozent and gesamt_anwesend_std > 0:
+            berechnetes_prozent = round((m_stunden / gesamt_anwesend_std) * 100, 2)
+            m_prozent = str(berechnetes_prozent)
+            c_m4.text_input(f"% Akkord (Auto)", value=f"{m_prozent}%", disabled=True, key=f"m_proz_dis_{idx}")
+        else:
+            m_prozent = c_m4.text_input(f"% Akkord", value=m.get("prozent", "100"), key=f"m_proz_{idx}")
+
         if len(st.session_state.monteure_liste) > 1:
             if c_m5.button("🗑️", key=f"del_m_{idx}"):
                 st.session_state.monteure_liste.pop(idx)
@@ -350,15 +345,15 @@ with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=Tru
     st.session_state.monteure_liste = neue_liste
 
     if st.button("➕ Weitere(n) Monteur/Helfer hinzufügen"):
-        st.session_state.monteure_liste.append({"name": "", "rolle": "Monteur", "prozent": "", "stunden": 8.0})
+        st.session_state.monteure_liste.append({"name": "", "rolle": "Monteur", "prozent": "0", "stunden": 8.0})
         st.rerun()
 
-tabs = st.tabs(["📋 Akkordzettel (Vorgedrucktes Material)", "⏱️ Stundennachweis & Regie", "📄 PDF Generieren"])
+tabs = st.tabs(["📋 Akkordzettel (Material)", "⏱️ Regiestunden & Zusatzmaterial", "📊 LIVE-Kalkulation & Verdienst", "📄 PDF Generieren"])
 
 # TAB 1: AKKORDZETTEL
 mengen_eingabe = {}
 with tabs[0]:
-    st.subheader("Akkordzettel - Mengen eintragen")
+    st.subheader("1. Akkordmaterial eintragen")
     search = st.text_input("🔍 Artikel suchen...", "")
     
     c1, c2, c3 = st.columns(3)
@@ -366,67 +361,120 @@ with tabs[0]:
     
     filtered_katalog = [k for k in KATALOG if search.lower() in k[0].lower() or search.lower() in k[1].lower()]
     
-    for idx, (pos, name) in enumerate(filtered_katalog):
+    for idx, (pos, name, satz) in enumerate(filtered_katalog):
         target_col = cols[idx % 3]
-        val = target_col.number_input(f"{pos} - {name}", min_value=0, step=1, key=f"pos_{pos}")
+        val = target_col.number_input(f"{pos} - {name} ({satz:.2f}€/Stk)", min_value=0, step=1, key=f"pos_{pos}")
         if val > 0:
             mengen_eingabe[pos] = val
 
 # TAB 2: STUNDENNACHWEIS & REGIE
 regie_liste = st.session_state.get('regie_liste', [])
 zusatz_mat_liste = st.session_state.get('zusatz_mat_liste', [])
-
 aktive_namen = [m['name'] for m in st.session_state.monteure_liste if m['name'].strip() != ""]
 
 with tabs[1]:
-    st.subheader("Stundennachweis / Regiestunden erfassen")
+    st.subheader("2. Regiestunden & Zusatzstunden erfassen")
     col_r1, col_r2, col_r3 = st.columns([2, 2, 1])
     
-    if aktive_namen:
-        r_monteur = col_r1.selectbox("Monteur Name", aktive_namen)
-    else:
-        r_monteur = col_r1.text_input("Monteur Name")
-        
+    r_monteur = col_r1.selectbox("Monteur Name", aktive_namen) if aktive_namen else col_r1.text_input("Monteur Name")
     r_datum = col_r2.text_input("Datum", value=st.session_state.get('monat', ''))
-    r_stunden = col_r3.text_input("Stunden / Tätigkeit (z.B. 1.5h Transport)")
+    r_stunden = col_r3.number_input("Zusatzstunden (Regie)", min_value=0.0, step=0.5)
     
-    if st.button("➕ Stunde hinzufügen"):
-        if r_monteur and r_stunden:
+    if st.button("➕ Regiestunde hinzufügen"):
+        if r_monteur and r_stunden > 0:
             regie_liste.append({'monteur': r_monteur, 'datum': r_datum, 'stunden': r_stunden})
             st.session_state['regie_liste'] = regie_liste
-            st.success("Stunde hinzugefügt!")
+            st.success("Regiestunde hinzugefügt!")
 
     if regie_liste:
         st.table(regie_liste)
 
     st.divider()
     st.subheader("Zusatzmaterial (Regie)")
-    
     col_m1, col_m2, col_m3 = st.columns([1.5, 3, 3])
-    m_menge = col_m1.text_input("Menge / Einheit", placeholder="z.B. 5m / 1 Stk")
-    
-    selected_katalog = col_m2.selectbox("Schnellauswahl aus Katalog (Nummer/Name tippbar)", KATALOG_DROPDOWN)
-    m_bezeichnung_manual = col_m3.text_input("Oder freie Bezeichnung", placeholder="Nur falls nicht im Katalog")
+    m_menge = col_m1.text_input("Menge / Einheit", placeholder="z.B. 5m")
+    selected_katalog = col_m2.selectbox("Katalog-Auswahl", KATALOG_DROPDOWN)
+    m_bezeichnung_manual = col_m3.text_input("Manuelle Bezeichnung", placeholder="Nur falls nicht im Katalog")
 
-    if st.button("➕ Material hinzufügen"):
-        final_bezeichnung = ""
-        if selected_katalog != "-- Manuelle Eingabe --":
-            final_bezeichnung = selected_katalog
-        elif m_bezeichnung_manual.strip():
-            final_bezeichnung = m_bezeichnung_manual.strip()
-
+    if st.button("➕ Zusatzmaterial hinzufügen"):
+        final_bezeichnung = selected_katalog if selected_katalog != "-- Manuelle Eingabe --" else m_bezeichnung_manual.strip()
         if final_bezeichnung:
             zusatz_mat_liste.append({'menge': m_menge, 'bezeichnung': final_bezeichnung})
             st.session_state['zusatz_mat_liste'] = zusatz_mat_liste
             st.success("Material hinzugefügt!")
-        else:
-            st.warning("Bitte wähle ein Material aus oder gib eine manuelle Bezeichnung ein.")
 
     if zusatz_mat_liste:
         st.table(zusatz_mat_liste)
 
-# TAB 3: PDF ERSTELLEN
+# TAB 3: LIVE-KALKULATION UND VERDIENST
 with tabs[2]:
+    st.subheader("📊 Automatische Verdienst- & Vergleichskalkulation")
+
+    # 1. Akkord-Gesamtsumme berechnen
+    gesamtsumme_akkord = 0.0
+    for pos, menge in mengen_eingabe.items():
+        satz = KATALOG_DICT[pos]["satz"]
+        gesamtsumme_akkord += menge * satz
+
+    # 2. Regiestunden-Summe berechnen
+    gesamt_regiestunden = sum(float(r['stunden']) for r in regie_liste)
+
+    # 3. Anwesenheitsstunden & Reine Stundenlohn-Basis berechnen
+    gesamt_anwesenheitsstunden = sum(m['stunden'] for m in st.session_state.monteure_liste)
+
+    c_k1, c_k2, c_k3 = st.columns(3)
+    c_k1.metric("Akkordsumme (Material)", f"{gesamtsumme_akkord:.2f} €")
+    c_k2.metric("Erfasste Zusatzstunden (Regie)", f"{gesamt_regiestunden:.1f} Std.")
+    c_k3.metric("Anwesenheit Gesamt", f"{gesamt_anwesenheitsstunden:.1f} Std.")
+
+    st.divider()
+    st.markdown("### Verdienst-Vergleich pro Monteur")
+
+    verdienst_daten = []
+    
+    # Summe der Prozentpunkte für Aufteilung berechnen
+    total_prozent_punkte = sum(float(m['prozent'].replace('%','')) if m['prozent'] else 0.0 for m in st.session_state.monteure_liste)
+
+    for m in st.session_state.monteure_liste:
+        m_name = m['name'] if m['name'] else "Unbenannt"
+        m_rolle = m['rolle']
+        m_std_satz = stundensaetze.get(m_rolle, 24.0)
+        m_stunden = m['stunden']
+        
+        # 1. Reine Stundenlohn-Vergütung
+        verdienst_stundenlohn = m_stunden * m_std_satz
+        
+        # 2. Reiner Akkordverdienst (Aufgeteilt nach anteiliger Zeit)
+        m_proz_val = float(m['prozent'].replace('%','')) if m['prozent'] else 0.0
+        m_prozent_anteil = m_proz_val / (total_prozent_punkte if total_prozent_punkte > 0 else 1)
+        verdienst_akkord_reinv = gesamtsumme_akkord * m_prozent_anteil
+
+        # 3. Akkord + Zusatzstunden (Regie wird zum Stundenlohn gutgeschrieben)
+        m_regie_stunden = sum(float(r['stunden']) for r in regie_liste if r['monteur'] == m_name)
+        verdienst_kombi = verdienst_akkord_reinv + (m_regie_stunden * m_std_satz)
+
+        # Effektiver Stundensatz im Akkord
+        effektiver_stundensatz = (verdienst_kombi / m_stunden) if m_stunden > 0 else 0.0
+
+        # Bestimmung der vorteilhaftesten Option
+        differenz = verdienst_kombi - verdienst_stundenlohn
+        status = "🟢 Akkord lohnt sich" if differenz >= 0 else "🔴 Stundenlohn höher"
+
+        verdienst_daten.append({
+            "Monteur": m_name,
+            "Lohngruppe": m_rolle,
+            "Anwesend": f"{m_stunden}h",
+            "Anteil (%)": f"{m_proz_val:.1f}%",
+            "Verdienst (Stundenlohn)": f"{verdienst_stundenlohn:.2f} €",
+            "Verdienst (Akkord + Regie)": f"{verdienst_kombi:.2f} €",
+            "Effektiver Std.-Lohn": f"{effektiver_stundensatz:.2f} €/h",
+            "Ergebnis": status
+        })
+
+    st.dataframe(verdienst_daten, use_container_width=True)
+
+# TAB 4: PDF ERSTELLEN
+with tabs[3]:
     st.subheader("Fertiges PDF-Formular erstellen")
     full_bv_nr_display = get_full_bv_nr(st.session_state.get('bv_nr_prefix', 'P42010-'), st.session_state.get('bv_nr_sub', ''))
     st.info(f"Projektnummer auf PDF: **{full_bv_nr_display}**")
