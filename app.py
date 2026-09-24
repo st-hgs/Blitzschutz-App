@@ -8,14 +8,23 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ==========================================
-# 1. STYLES & KONFIGURATION
+# 1. KONFIGURATION & STYLES
 # ==========================================
-st.set_page_config(page_title="ITTNER Blitzschutz Abrechnung", layout="wide")
+st.set_page_config(page_title="ITTNER Blitzschutz – Aufmaß & Abrechnung", layout="wide")
+
+# Standard-Stundenlöhne nach ITTNER Lohnvereinbarung 2026
+LOHN_ROLLEN = {
+    "Obermonteur": 21.58,
+    "Monteur": 20.57,
+    "Helfer": 18.52
+}
+OM_ZUSCHLAG_AKKORD = 0.08  # pro Arbeitswert/Position im Akkord
 
 # ==========================================
-# 2. KATALOG-DATEN (ITTNER BLITZSCHUTZ)
+# 2. KATALOG-DATEN (ITTNER BLITZSCHUTZ 2026)
 # ==========================================
 KATALOG_RAW = [
+    # --- Seite 1 ---
     ("001", "EL/BE 30 x 3,5", "Erdleitung Bandstahl 30 x 3,5 mm", 0.61),
     ("002", "EL/10", "Erdleitung verz. 10 mm", 0.62),
     ("004", "EL/BE V4A 30 x 3,5", "Erdleitung Bandstahl V4A 30 x 3,5 mm", 0.81),
@@ -45,6 +54,8 @@ KATALOG_RAW = [
     ("055", "TKA/Graug.", "Trennstellenkasten aus Grauguß mit Trennstelle", 2.93),
     ("056", "Wanddurchführung V4A", "Druckwasserdichte Erder- und Wanddurchführung mit MV-Klemme Niro (V4A), Länge 500-700 mm, ohne Bohrung", 3.84),
     ("057", "Rev.-Türen", "Unterputz-Trennstellen", 2.93),
+
+    # --- Seite 2 ---
     ("058", "Erd-Festp.", "Erdungsfestpunkt Niro einschl. Befestigung", 2.93),
     ("060", "PK/Mess. 16/8", "Prüfkupplung/Messing 16/8 Trennklemme/Messing 16/8", 0.62),
     ("061", "PK/Alu 16/8", "Prüfkupplung/Aluminium Trennklemme/Aluminium", 0.62),
@@ -74,6 +85,8 @@ KATALOG_RAW = [
     ("118", "Abltg./V4A 10 mm", "Ableitung 10 mm V4A-Stahl", 1.45),
     ("127", "OL/10/V4A", "Oberleitung, V4A-Stahl 10 mm DIN 1.4571", 1.39),
     ("128", "OL/BE verz. 30 x 3,5", "Oberleitung verz. Bandstahl 30 x 3,5 mm", 1.44),
+
+    # --- Seite 3 ---
     ("130", "OL/BE V4A 30 x 3,5", "Oberleitung Bandstahl V4A 30 x 3,5 mm", 2.14),
     ("140", "Steildach/Schiefer", "Steildach-Zulage bei Schieferdacheindeckung", 0.30),
     ("141", "Zulage > 10 m", "Zulage für Arbeiten über 10 m Höhe zwischen Dachkante und Prüfkupplung mit Leiter", 0.30),
@@ -103,6 +116,8 @@ KATALOG_RAW = [
     ("181", "Alu/Lasche", "Alu-Lasche 30 x 3 mm ohne Anfertigung, m.Niet.", 1.10),
     ("182", "Stangenklemme 16/8", "Stangenklemme 16/8", 0.62),
     ("183", "Cu/Lasche", "Kupfer-Lasche, 30 x 3 mm ohne Anfertigung", 1.08),
+
+    # --- Seite 4 ---
     ("184", "Winkel VA", "Winkel VA", 1.10),
     ("186", "Anla/Schweiß", "Anschlußlasche BE 30 x 3,5 Befestigung mittels Schweißung", 2.97),
     ("187", "Brücke/flex, Band", "Brücke flexibel, Dehnungsband Alu", 1.73),
@@ -133,6 +148,8 @@ KATALOG_RAW = [
     ("270", "Stangenh. verz.", "Stangenhalter 16 mm verzinkt", 1.37),
     ("271", "Stangenh. Cu", "Stangenhalter 16 mm Kupfer", 1.37),
     ("272", "Überleger Alu", "Überleger Aluminium", 0.62),
+
+    # --- Seite 5 ---
     ("273", "Überleger VA", "Überleger Nirosta", 0.62),
     ("274", "Klebepad", "Klebepad", 1.37),
     ("275", "Kontasch/VA/Alu", "Kontaktschelle VA oder Aluminium 80-100 Ø", 1.19),
@@ -164,6 +181,8 @@ KATALOG_RAW = [
     ("329", "Uni/Alu", "Universalverbinder Aluminium", 0.91),
     ("330", "Uni/Cu", "Universalverbinder/Kupfer", 0.91),
     ("331", "Uni/VA", "Universalverbinder/Nirosta", 0.91),
+
+    # --- Seite 6 ---
     ("332", "VM 8 Alu", "Verbindungsmuffe 8mm Alu Dehn 385213", 1.06),
     ("333", "VM 8 VA", "Verbindungsmuffe 8mm V2A", 1.06),
     ("334", "VM 16 Alu", "Verbindungsmuffe 16mm Alu", 1.06),
@@ -194,6 +213,8 @@ KATALOG_RAW = [
     ("425", "OL/K/50 qmm", "POT-Leitung H07V-K/R grün/gelb 50 qmm", 1.37),
     ("426", "OL/K/70 qmm", "POT-Leitung H07V-K/R grün/gelb 70 qmm", 1.37),
     ("429", "OL/NYY 1x16 qmm", "Oberleitung-Kabel NYY-I 1 x 16 qmm", 0.90),
+
+    # --- Seite 7 ---
     ("430", "OL/NYY 1x25 qmm", "Oberleitungs-Kabel NYY-I 1 x 25 qmm", 0.90),
     ("431", "OL/NYY 1x35 qmm", "Oberleitung-Kabel NYY-I 1 x 35 qmm", 0.90),
     ("435", "OL/NYY 1x50 qmm", "Oberleitungs-Kabel NYY-I 1 x 50 qmm", 1.37),
@@ -229,11 +250,15 @@ df_katalog = pd.DataFrame(KATALOG_RAW, columns=["Pos", "Kurzbezeichnung", "Leist
 # ==========================================
 if 'positionen' not in st.session_state:
     st.session_state.positionen = []
+
 if 'monteure' not in st.session_state:
-    st.session_state.monteure = [{'name': 'Monteur 1', 'stunden': 8.0, 'satz': 45.0}]
+    st.session_state.monteure = [
+        {'name': 'Obermonteur 1', 'rolle': 'Obermonteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Obermonteur']},
+        {'name': 'Monteur 1', 'rolle': 'Monteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Monteur']}
+    ]
 
 # ==========================================
-# 4. PDF GENERATION FUNCTION
+# 4. PDF GENERATOR FUNCTION
 # ==========================================
 def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_gesamt, akkord_gesamt, faktor):
     buffer = io.BytesIO()
@@ -248,7 +273,7 @@ def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_ge
     cell_bold = ParagraphStyle('CellBold', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold")
 
     # Header
-    story.append(Paragraph("ITTNER Blitzschutz GmbH – Aufmaß & Abrechnung", title_style))
+    story.append(Paragraph("ITTNER Blitzschutz GmbH – Aufmaß & Abrechnung 2026", title_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1A365D"), spaceAfter=10))
     
     # Meta Infos
@@ -257,7 +282,7 @@ def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_ge
     story.append(Spacer(1, 15))
 
     # Tabelle Positionen
-    story.append(Paragraph("<b>Erfasste Leistungen (Akkord)</b>", styles['Heading2']))
+    story.append(Paragraph("<b>1. Erfasste Leistungen / Material (Akkord)</b>", styles['Heading2']))
     
     table_data = [[
         Paragraph("Pos", table_header_style),
@@ -296,12 +321,19 @@ def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_ge
     story.append(Spacer(1, 15))
 
     # Monteur / Stunden Übersicht
-    story.append(Paragraph("<b>Stundennachweis & Monteure</b>", styles['Heading2']))
-    mont_data = [[Paragraph("Monteur", table_header_style), Paragraph("Stunden (h)", table_header_style), Paragraph("Stundensatz (€)", table_header_style), Paragraph("Kosten (€)", table_header_style)]]
+    story.append(Paragraph("<b>2. Stundennachweis Monteure (Regie)</b>", styles['Heading2']))
+    mont_data = [[
+        Paragraph("Monteur Name", table_header_style),
+        Paragraph("Rolle", table_header_style),
+        Paragraph("Stunden (h)", table_header_style),
+        Paragraph("Stundensatz (€)", table_header_style),
+        Paragraph("Kosten (€)", table_header_style)
+    ]]
     
     for _, row in df_mont.iterrows():
         mont_data.append([
             Paragraph(str(row['Name']), cell_style),
+            Paragraph(str(row.get('Rolle', 'Monteur')), cell_style),
             Paragraph(f"{row['Stunden']:.2f}", cell_style),
             Paragraph(f"{row['Satz']:.2f}", cell_style),
             Paragraph(f"{row['Kosten']:.2f}", cell_style)
@@ -309,16 +341,16 @@ def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_ge
 
     mont_data.append([
         Paragraph("<b>Gesamt Regie</b>", cell_bold),
-        "", "",
+        "", "", "",
         Paragraph(f"<b>{stundenlohn_gesamt:.2f} €</b>", cell_bold)
     ])
 
-    t_mont = Table(mont_data, colWidths=[200, 100, 100, 110])
+    t_mont = Table(mont_data, colWidths=[150, 90, 80, 90, 100])
     t_mont.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2B6CB0")),
         ('GRID', (0,0), (-1,-2), 0.5, colors.lightgrey),
         ('LINEABOVE', (0,-1), (-1,-1), 1, colors.HexColor("#2B6CB0")),
-        ('SPAN', (0,-1), (2,-1))
+        ('SPAN', (0,-1), (3,-1))
     ]))
     story.append(t_mont)
     story.append(Spacer(1, 20))
@@ -330,9 +362,9 @@ def generate_pdf(bauvorhaben, projekt_nr, datum, df_pos, df_mont, stundenlohn_ge
 
     fazit_text = f"""
     <b>Wirtschaftlichkeitsanalyse:</b><br/>
-    • Akkord-Lohnwert: <b>{akkord_gesamt:.2f} €</b> (Anpassungsfaktor: {faktor:.0f}%)<br/>
-    • Reiner Stundenlohn: <b>{stundenlohn_gesamt:.2f} €</b><br/>
-    • Differenz / Ergebnis: <font color="{color_code}"><b>{differenz:+.2f} € ({status})</b></font>
+    • Akkord-Lohnwert gesamt: <b>{akkord_gesamt:.2f} €</b> (Lohnsatz-Faktor: {faktor:.0f}%)<br/>
+    • Reiner Stundenlohn gesamt: <b>{stundenlohn_gesamt:.2f} €</b><br/>
+    • Differenz / Deckungsbeitrag: <font color="{color_code}"><b>{differenz:+.2f} € ({status})</b></font>
     """
     story.append(Paragraph(fazit_text, styles['Normal']))
 
@@ -350,62 +382,118 @@ col_h1, col_h2, col_h3 = st.columns(3)
 with col_h1:
     bauvorhaben = st.text_input("Bauvorhaben / Objekt", value="BV Mustermann")
 with col_h2:
-    projekt_nr = st.text_input("Projekt- / Auftragsschein-Nr.", value="PR-2026-001")
+    projekt_nr = st.text_input("Projekt- / Auftragsschein-Nr.", value="P42010-")
 with col_h3:
     datum = st.date_input("Datum", value=date.today())
 
 st.markdown("---")
 
-# Slider Lohnanpassung
-st.sidebar.header("⚙️ Lohnsatz-Anpassung")
-lohn_faktor_pct = st.sidebar.slider("Lohnsatz Faktor (%)", min_value=50, max_value=200, value=100, step=5)
+# Sidebar
+st.sidebar.header("⚙️ Tarif- & Lohneinstellungen 2026")
+st.sidebar.markdown("""
+**Regellöhne Ittner 2026:**
+* **Obermonteur:** 21,58 €/h
+* **Monteur:** 20,57 €/h
+* **Helfer:** 18,52 €/h
+* **OM-Akkordzuschlag:** +0,08 €/AW
+""")
+
+lohn_faktor_pct = st.sidebar.slider("Lohnsatz Anpassungsfaktor (%)", min_value=50, max_value=200, value=100, step=5)
 faktor = lohn_faktor_pct / 100.0
 
 # --- ABSCHNITT 1: POSITIONEN ERFASSEN ---
 st.subheader("1. Positionen erfassen (Akkord)")
 
-col_p1, col_p2, col_p3 = st.columns([3, 1, 1])
+tab_katalog, tab_frei = st.tabs(["Katalogauswahl", "Freie Position / Textzeile"])
 
-with col_p1:
-    katalog_options = [f"{row['Pos']} | {row['Kurzbezeichnung']} | {row['Leistungsbezeichnung']}" for _, row in df_katalog.iterrows()]
-    selected_pos_str = st.selectbox("Position aus Katalog wählen", options=katalog_options)
-    
-    # Ausgewählte Pos extrahieren
-    selected_code = selected_pos_str.split(" | ")[0]
-    pos_data = df_katalog[df_katalog['Pos'] == selected_code].iloc[0]
+with tab_katalog:
+    col_p1, col_p2, col_p3 = st.columns([3, 1, 1])
 
-with col_p2:
-    menge = st.number_input("Menge", min_value=0.01, value=1.0, step=1.0)
+    with col_p1:
+        katalog_options = [f"{row['Pos']} | {row['Kurzbezeichnung']} | {row['Leistungsbezeichnung']}" for _, row in df_katalog.iterrows()]
+        selected_pos_str = st.selectbox("Position aus Katalog wählen", options=katalog_options)
+        selected_code = selected_pos_str.split(" | ")[0]
+        pos_data = df_katalog[df_katalog['Pos'] == selected_code].iloc[0]
 
-with col_p3:
-    st.write(" ")
-    st.write(" ")
-    if st.button("➕ Position hinzufügen", use_container_width=True):
-        angepasster_satz = pos_data['Lohn_Basis'] * faktor
-        gesamt_eur = menge * angepasster_satz
-        st.session_state.positionen.append({
-            'Pos': pos_data['Pos'],
-            'Kurzbezeichnung': pos_data['Kurzbezeichnung'],
-            'Leistungsbezeichnung': pos_data['Leistungsbezeichnung'],
-            'Menge': menge,
-            'Basis_Satz': pos_data['Lohn_Basis'],
-            'Angepasster_Satz': angepasster_satz,
-            'Gesamt_EUR': gesamt_eur
-        })
-        st.rerun()
+    with col_p2:
+        menge = st.number_input("Menge", min_value=0.01, value=1.0, step=1.0, key="katalog_menge")
 
-# Tabelle der erfassten Positionen
+    with col_p3:
+        st.write(" ")
+        st.write(" ")
+        if st.button("➕ Katalogpos. hinzufügen", use_container_width=True):
+            angepasster_satz = pos_data['Lohn_Basis'] * faktor
+            gesamt_eur = menge * angepasster_satz
+            st.session_state.positionen.append({
+                'Pos': pos_data['Pos'],
+                'Kurzbezeichnung': pos_data['Kurzbezeichnung'],
+                'Leistungsbezeichnung': pos_data['Leistungsbezeichnung'],
+                'Menge': menge,
+                'Basis_Satz': pos_data['Lohn_Basis'],
+                'Angepasster_Satz': angepasster_satz,
+                'Gesamt_EUR': gesamt_eur
+            })
+            st.rerun()
+
+with tab_frei:
+    col_f1, col_f2, col_f3, col_f4 = st.columns([1, 2, 1, 1])
+    with col_f1:
+        frei_pos = st.text_input("Pos-Nr.", value="Frei")
+    with col_f2:
+        frei_bez = st.text_input("Bezeichnung / Freitext")
+    with col_f3:
+        frei_menge = st.number_input("Menge", min_value=0.01, value=1.0, step=1.0, key="frei_menge")
+    with col_f4:
+        frei_satz = st.number_input("Einzelpreis (€)", min_value=0.0, value=0.0, step=0.50)
+
+    if st.button("➕ Freie Position hinzufügen"):
+        if frei_bez:
+            st.session_state.positionen.append({
+                'Pos': frei_pos,
+                'Kurzbezeichnung': frei_bez,
+                'Leistungsbezeichnung': frei_bez,
+                'Menge': frei_menge,
+                'Basis_Satz': frei_satz,
+                'Angepasster_Satz': frei_satz,
+                'Gesamt_EUR': frei_menge * frei_satz
+            })
+            st.success(f"Freie Position hinzugefügt: {frei_bez}")
+            st.rerun()
+        else:
+            st.error("Bitte mindestens eine Bezeichnung angeben.")
+
+# Tabelle & Löschen
 if st.session_state.positionen:
     df_pos = pd.DataFrame(st.session_state.positionen)
-    # Sätze dynamically nach Slider neu berechnen
+    # Dynamische Lohnanpassung
     df_pos['Angepasster_Satz'] = df_pos['Basis_Satz'] * faktor
     df_pos['Gesamt_EUR'] = df_pos['Menge'] * df_pos['Angepasster_Satz']
     
+    st.markdown("### Erfasste Positionen")
     st.dataframe(df_pos[['Pos', 'Kurzbezeichnung', 'Menge', 'Angepasster_Satz', 'Gesamt_EUR']], use_container_width=True)
     
-    if st.button("🗑️ Alle Positionen löschen"):
-        st.session_state.positionen = []
-        st.rerun()
+    # Schnell-Löschen per Positionsnummer
+    col_del1, col_del2, col_del3 = st.columns([2, 1, 2])
+    with col_del1:
+        del_code = st.text_input("Schnell-Löschen (Pos-Nr. eingeben & Enter)", placeholder="z. B. 001, 011 oder Frei")
+    with col_del2:
+        st.write(" ")
+        st.write(" ")
+        if st.button("🗑️ Pos. entfernen") or del_code:
+            if del_code:
+                vorher = len(st.session_state.positionen)
+                st.session_state.positionen = [p for p in st.session_state.positionen if str(p['Pos']).strip() != del_code.strip()]
+                if len(st.session_state.positionen) < vorher:
+                    st.success(f"Position {del_code} gelöscht!")
+                    st.rerun()
+                else:
+                    st.warning(f"Position {del_code} nicht gefunden.")
+    with col_del3:
+        st.write(" ")
+        st.write(" ")
+        if st.button("❌ Alle Positionen zurücksetzen"):
+            st.session_state.positionen = []
+            st.rerun()
 else:
     st.info("Noch keine Positionen erfasst.")
     df_pos = pd.DataFrame()
@@ -415,25 +503,35 @@ st.markdown("---")
 # --- ABSCHNITT 2: MONTEURE & STUNDEN ---
 st.subheader("2. Stundennachweis Monteure (Regie)")
 
-col_m1, col_m2 = st.columns(2)
+col_m_left, col_m_right = st.columns([3, 2])
 
-with col_m1:
-    st.write("**Monteure verwalten**")
+with col_m_left:
+    st.write("**Monteure verwalten & Rollen zuweisen**")
     for idx, m in enumerate(st.session_state.monteure):
-        cm1, cm2, cm3 = st.columns([2, 1, 1])
-        with cm1:
-            st.session_state.monteure[idx]['name'] = st.text_input(f"Monteur {idx+1} Name", value=m['name'], key=f"m_name_{idx}")
-        with cm2:
-            st.session_state.monteure[idx]['stunden'] = st.number_input(f"Stunden", value=m['stunden'], step=0.5, key=f"m_std_{idx}")
-        with cm3:
-            st.session_state.monteure[idx]['satz'] = st.number_input(f"Stundensatz (€)", value=m['satz'], step=1.0, key=f"m_satz_{idx}")
+        cm1, cm2, cm3, cm4 = st.columns([2, 2, 1, 1.5])
+        
+        name_val = cm1.text_input(f"Name", value=m.get('name', f'Monteur {idx+1}'), key=f"m_name_{idx}")
+        rolle_val = cm2.selectbox("Rolle", options=list(LOHN_ROLLEN.keys()), index=list(LOHN_ROLLEN.keys()).index(m.get('rolle', 'Monteur')), key=f"m_rolle_{idx}")
+        
+        # Automatische Satzermittlung bei Rollenwechsel
+        auto_satz = LOHN_ROLLEN[rolle_val]
+        stunden_val = cm3.number_input("Std.", value=float(m.get('stunden', 8.0)), step=0.5, key=f"m_std_{idx}")
+        satz_val = cm4.number_input("Stundensatz", value=float(m.get('satz', auto_satz)), step=0.5, key=f"m_satz_{idx}")
+        
+        st.session_state.monteure[idx] = {
+            'name': name_val,
+            'rolle': rolle_val,
+            'stunden': stunden_val,
+            'satz': satz_val
+        }
 
     if st.button("➕ weiteren Monteur hinzufügen"):
-        st.session_state.monteure.append({'name': f'Monteur {len(st.session_state.monteure)+1}', 'stunden': 8.0, 'satz': 45.0})
+        st.session_state.monteure.append({'name': f'Monteur {len(st.session_state.monteure)+1}', 'rolle': 'Monteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Monteur']})
         st.rerun()
 
 df_mont = pd.DataFrame(st.session_state.monteure)
-df_mont['Kosten'] = df_mont['Stunden'] * df_mont['Satz']
+if not df_mont.empty:
+    df_mont['Kosten'] = df_mont['Stunden'] * df_mont['Satz']
 
 st.markdown("---")
 
@@ -459,7 +557,7 @@ if st.button("📄 PDF-Abrechnung generieren", type="primary", use_container_wid
         st.download_button(
             label="💾 PDF herunterladen",
             data=pdf_bytes,
-            file_name=f"Abrechnung_{projekt_nr}_{datum}.pdf",
+            file_name=f"Abrechnung_{projekt_nr}_{datum.strftime('%Y%m%d')}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
