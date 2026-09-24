@@ -1,3 +1,17 @@
+import streamlit as st
+import pandas as pd
+from datetime import date
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+st.set_page_config(page_title="ITTNER - Montagebericht & Akkord", layout="wide")
+
+# ==========================================
+# KATALOG DATENBANK
+# ==========================================
 KATALOG_RAW = [
     # --- Seite 1 ---
     ("001", "EL/BE 30 x 3,5", "Erdleitung Bandstahl 30 x 3,5 mm", 0.61),
@@ -217,3 +231,274 @@ KATALOG_RAW = [
     ("554", "Bohrschrauben A2, 6,3x27 mm", "Bohrschrauben A2, 6,3x27 mm", 0.11),
     ("555", "Nieten 6,4x15 mm", "Nieten Alu/A2 6,4x15 mm", 0.16)
 ]
+
+df_katalog = pd.DataFrame(KATALOG_RAW, columns=["Pos", "Kurzbezeichnung", "Leistungsbeschreibung", "Minuten"])
+
+# ==========================================
+# INITIALISIERUNG SESSION STATE
+# ==========================================
+if "positionen" not in st.session_state:
+    st.session_state.positionen = []
+
+if "monteure" not in st.session_state:
+    st.session_state.monteure = [
+        {"name": "Monteur 1", "stunden": 8.0},
+        {"name": "Monteur 2", "stunden": 8.0}
+    ]
+
+# ==========================================
+# HEADER & ALLGEMEINE ANGABEN
+# ==========================================
+st.title("⚡ ITTNER Blitzschutz — Montagebericht & Akkordzettel")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    baustelle = st.text_input("Baustelle / Objekt", value="Beispielbaustelle Berlin")
+    auftragsnummer = st.text_input("Auftragsnummer / Kom.-Nr.", value="2026-9912")
+with col2:
+    datum_ausfuehrung = st.date_input("Ausführungsdatum", value=date.today())
+    bauleiter = st.text_input("Bauleiter / Ansprechpartner", value="M. Muster")
+with col3:
+    kunden_info = st.text_area("Kundenadresse / Bemerkungen", value="Musterstraße 12, 10115 Berlin", height=108)
+
+st.markdown("---")
+
+# ==========================================
+# MONTEURE & ANWESENHEIT
+# ==========================================
+st.subheader("👥 Monteure & Anwesenheitszeiten")
+
+c_mon1, c_mon2 = st.columns([3, 1])
+with c_mon1:
+    anzahl_monteure = st.number_input("Anzahl Monteure vor Ort", min_value=1, max_value=10, value=len(st.session_state.monteure))
+
+if len(st.session_state.monteure) != anzahl_monteure:
+    if len(st.session_state.monteure) < anzahl_monteure:
+        for i in range(len(st.session_state.monteure), anzahl_monteure):
+            st.session_state.monteure.append({"name": f"Monteur {i+1}", "stunden": 8.0})
+    else:
+        st.session_state.monteure = st.session_state.monteure[:anzahl_monteure]
+
+monteur_cols = st.columns(min(anzahl_monteure, 4))
+gesamte_anwesenheitsstunden = 0.0
+
+for idx, mon in enumerate(st.session_state.monteure):
+    col_idx = idx % 4
+    with monteur_cols[col_idx]:
+        st.markdown(f"**Monteur #{idx+1}**")
+        mon["name"] = st.text_input(f"Name", value=mon["name"], key=f"mon_name_{idx}")
+        mon["stunden"] = st.number_input(f"Stunden", min_value=0.0, max_value=24.0, value=float(mon["stunden"]), step=0.5, key=f"mon_std_{idx}")
+        gesamte_anwesenheitsstunden += mon["stunden"]
+
+st.markdown("---")
+
+# ==========================================
+# MATERIAL- & LEISTUNGSERFASSUNG
+# ==========================================
+st.subheader("🛠️ Erfasste Leistungen / Material (Akkord)")
+
+tab_katalog, tab_frei = st.tabs(["Aus Katalog auswählen", "Freie Position hinzufügen"])
+
+with tab_katalog:
+    katalog_options = df_katalog.apply(lambda r: f"{r['Pos']} | {r['Kurzbezeichnung']} - {r['Leistungsbeschreibung']} ({r['Minuten']} Min)", axis=1).tolist()
+    auswahl_pos = st.selectbox("Position aus Katalog wählen", options=katalog_options)
+    
+    col_k1, col_k2 = st.columns([1, 3])
+    with col_k1:
+        menge_katalog = st.number_input("Menge / Stück / Meter", min_value=0.0, value=1.0, step=1.0, key="menge_kat")
+    with col_k2:
+        st.write("")
+        st.write("")
+        if st.button("➕ Katalogeintrag hinzufügen"):
+            selected_pos_code = auswahl_pos.split(" | ")[0]
+            row = df_katalog[df_katalog["Pos"] == selected_pos_code].iloc[0]
+            st.session_state.positionen.append({
+                "Pos": row["Pos"],
+                "Bezeichnung": row["Kurzbezeichnung"],
+                "Beschreibung": row["Leistungsbeschreibung"],
+                "Menge": menge_katalog,
+                "Minuten_Einheit": float(row["Minuten"]),
+                "Gesamtminuten": menge_katalog * float(row["Minuten"])
+            })
+            st.success(f"Hinzugefügt: {row['Kurzbezeichnung']} ({menge_katalog}x)")
+
+with tab_frei:
+    col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
+    with col_f1:
+        freie_bez = st.text_input("Bezeichnung / Freitext")
+    with col_f2:
+        freie_menge = st.number_input("Menge", min_value=0.0, value=1.0, step=1.0, key="menge_frei")
+    with col_f3:
+        freie_min = st.number_input("Minuten pro Einz. (Vorgabe)", min_value=0.0, value=1.0, step=0.5)
+    
+    if st.button("➕ Freie Position hinzufügen"):
+        if freie_bez:
+            st.session_state.positionen.append({
+                "Pos": "Frei",
+                "Bezeichnung": freie_bez,
+                "Beschreibung": freie_bez,
+                "Menge": freie_menge,
+                "Minuten_Einheit": freie_min,
+                "Gesamtminuten": freie_menge * freie_min
+            })
+            st.success(f"Hinzugefügt: {freie_bez}")
+        else:
+            st.error("Bitte eine Bezeichnung eingeben.")
+
+# Tabelle anzeigen
+if st.session_state.positionen:
+    st.markdown("### Aktuelle Erfassung List")
+    df_erfasst = pd.DataFrame(st.session_state.positionen)
+    
+    st.dataframe(df_erfasst[["Pos", "Bezeichnung", "Menge", "Minuten_Einheit", "Gesamtminuten"]], use_container_width=True)
+    
+    col_del1, col_del2 = st.columns([1, 4])
+    with col_del1:
+        if st.button("🗑️ Letzte Position löschen"):
+            st.session_state.positionen.pop()
+            st.rerun()
+    with col_del2:
+        if st.button("❌ Alle Positionen zurücksetzen"):
+            st.session_state.positionen = []
+            st.rerun()
+
+st.markdown("---")
+
+# ==========================================
+# BERECHNUNG & BERECHNUNGSÜBERSICHT
+# ==========================================
+st.subheader("📊 Auswertung & Akkordberechnung")
+
+gesamt_arbeitswerte_minuten = sum(p["Gesamtminuten"] for p in st.session_state.positionen) if st.session_state.positionen else 0.0
+gesamt_arbeitswerte_stunden = gesamt_arbeitswerte_minuten / 60.0
+
+col_m1, col_m2, col_m3 = st.columns(3)
+col_m1.metric("Gesamte Soll-Vorgabe (Minuten)", f"{gesamt_arbeitswerte_minuten:.1f} Min")
+col_m2.metric("Gesamte Soll-Vorgabe (Stunden)", f"{gesamt_arbeitswerte_stunden:.2f} Std")
+col_m3.metric("Anwesenheit gesamt", f"{gesamte_anwesenheitsstunden:.2f} Std")
+
+if gesamte_anwesenheitsstunden > 0 and gesamt_arbeitswerte_stunden > 0:
+    st.markdown("#### Aufteilung des Akkordvolumens auf die Monteure:")
+    akkord_verteilung = []
+    for mon in st.session_state.monteure:
+        anteil_prozent = (mon["stunden"] / gesamte_anwesenheitsstunden) if gesamte_anwesenheitsstunden > 0 else 0
+        erarbeitete_minuten = gesamt_arbeitswerte_minuten * anteil_prozent
+        erarbeitete_stunden = gesamt_arbeitswerte_stunden * anteil_prozent
+        
+        akkord_verteilung.append({
+            "Monteur": mon["name"],
+            "Anwesenheit (Std)": mon["stunden"],
+            "Anteil (%)": f"{anteil_prozent * 100:.1f} %",
+            "Akkord-Guthaben (Min)": round(erarbeitete_minuten, 1),
+            "Akkord-Guthaben (Std)": round(erarbeitete_stunden, 2)
+        })
+    
+    st.table(pd.DataFrame(akkord_verteilung))
+
+st.markdown("---")
+
+# ==========================================
+# PDF GENERATOR
+# ==========================================
+def generate_pdf():
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#003366'))
+    subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Heading2'], fontSize=12, leading=16, textColor=colors.HexColor('#333333'))
+    normal_style = styles['Normal']
+    
+    # Title
+    story.append(Paragraph("<b>ITTNER BLITZSCHUTZ — MONTAGEBERICHT & AKKORDZETTEL</b>", title_style))
+    story.append(Spacer(1, 10))
+    
+    # Kopfdaten
+    kopf_data = [
+        [Paragraph(f"<b>Baustelle:</b> {baustelle}", normal_style), Paragraph(f"<b>Datum:</b> {datum_ausfuehrung.strftime('%d.%m.%Y')}", normal_style)],
+        [Paragraph(f"<b>Auftrags-Nr.:</b> {auftragsnummer}", normal_style), Paragraph(f"<b>Bauleiter:</b> {bauleiter}", normal_style)],
+        [Paragraph(f"<b>Kunde / Adresse:</b> {kunden_info}", normal_style), Paragraph(f"<b>Anwesenheit gesamt:</b> {gesamte_anwesenheitsstunden} Std", normal_style)]
+    ]
+    t_kopf = Table(kopf_data, colWidths=[270, 270])
+    t_kopf.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F2F4F7')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CCCCCC')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E5E7EB')),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+    ]))
+    story.append(t_kopf)
+    story.append(Spacer(1, 15))
+    
+    # Monteure
+    story.append(Paragraph("<b>Erfasste Monteure</b>", subtitle_style))
+    story.append(Spacer(1, 5))
+    
+    mon_table_data = [["Monteur Name", "Anwesenheit (Std)", "Akkord-Anteil (%)", "Erarbeitete Min.", "Erarbeitete Std."]]
+    for mon in st.session_state.monteure:
+        anteil = (mon["stunden"] / gesamte_anwesenheitsstunden) if gesamte_anwesenheitsstunden > 0 else 0
+        e_min = gesamt_arbeitswerte_minuten * anteil
+        e_std = gesamt_arbeitswerte_stunden * anteil
+        mon_table_data.append([
+            mon["name"],
+            f"{mon['stunden']:.1f}",
+            f"{anteil*100:.1f} %",
+            f"{e_min:.1f}",
+            f"{e_std:.2f}"
+        ])
+    
+    t_mon = Table(mon_table_data, colWidths=[150, 95, 95, 100, 100])
+    t_mon.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#003366')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (1,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CCCCCC')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(t_mon)
+    story.append(Spacer(1, 15))
+    
+    # Positionen
+    story.append(Paragraph("<b>Erbrachte Leistungen / Ausgeführte Arbeiten</b>", subtitle_style))
+    story.append(Spacer(1, 5))
+    
+    pos_table_data = [["Pos", "Bezeichnung", "Menge", "Min / Einz.", "Gesamt (Min)"]]
+    for p in st.session_state.positionen:
+        pos_table_data.append([
+            p["Pos"],
+            Paragraph(p["Bezeichnung"], normal_style),
+            f"{p['Menge']:.1f}",
+            f"{p['Minuten_Einheit']:.2f}",
+            f"{p['Gesamtminuten']:.1f}"
+        ])
+    
+    pos_table_data.append(["", "GESAMTSUMME", "", "", f"{gesamt_arbeitswerte_minuten:.1f} Min"])
+    
+    t_pos = Table(pos_table_data, colWidths=[45, 265, 60, 85, 85])
+    t_pos.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#E5E7EB')),
+        ('ALIGN', (2,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CCCCCC')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(t_pos)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+st.subheader("📄 PDF Export")
+if st.session_state.positionen:
+    pdf_data = generate_pdf()
+    st.download_button(
+        label="📥 Montagebericht als PDF herunterladen",
+        data=pdf_data,
+        file_name=f"Montagebericht_{auftragsnummer}_{datum_ausfuehrung.strftime('%Y%m%d')}.pdf",
+        mime="application/pdf"
+    )
+else:
+    st.info("Füge mindestens eine Leistung hinzu, um den PDF-Export zu aktivieren.")
