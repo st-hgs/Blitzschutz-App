@@ -17,6 +17,7 @@ KATALOG_RAW = [
     ("006", "EL/V4A", "Erdleitung V4A-Stahl 10 mm DIN 1.4571", 0.81),
     ("010", "FE/BE", "Fundamenterde 30 x 3,5 Bandstahl 30 x 3,5 mm", 1.05),
     ("011", "FE/EL 10", "Fundamenterde verz. 10 mm", 1.05),
+    ("012", "FE/VA 30x3,5 / 10mm", "Fundamenterde VA 30 x 3,5 mm bzw. 10 mm rund", 1.05),
     ("015", "BSA VA", "Blitzschutzanker", 16.09),
     ("024", "KV/10/16", "Diagonalverbinder 10 mm Diagonal und Bandeisen", 0.91),
     ("025", "KV/10/VA", "Diagonalverbinder/VA 10 mm Diagonal flach/rund", 0.91),
