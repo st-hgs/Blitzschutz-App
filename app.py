@@ -72,6 +72,18 @@ KATALOG = [
     ("344", "KSO/Cu"), ("350", "DD/PVC"), ("352", "DD Ziegeldach")
 ]
 
+# Formattierungsliste für Material-Dropdown
+KATALOG_DROPDOWN = ["-- Manuelle Eingabe --"] + [f"{pos} - {name}" for pos, name in KATALOG]
+
+# Helper zur Formatierung der Projektennummer P 42 010 - XXXX
+def get_full_bv_nr(raw_input):
+    clean_input = raw_input.strip()
+    if not clean_input:
+        return "P 42 010 - ____"
+    if clean_input.startswith("P 42 010 -"):
+        return clean_input
+    return f"P 42 010 - {clean_input}"
+
 # ---------------------------------------------------------
 # PDF-GENERATION MIT REPORTLAB
 # ---------------------------------------------------------
@@ -84,15 +96,15 @@ def draw_header_page1(canvas, doc):
     canvas.setFont("Helvetica-Bold", 10)
     canvas.drawString(12 * mm, 276 * mm, "Blitzschutz")
     canvas.setFont("Helvetica", 8)
-    canvas.drawString(12 * mm, 272 * mm, "50933 Köln")
-    canvas.drawString(12 * mm, 268 * mm, "Tel. 02 21 / 49 11 820")
+    canvas.drawString(12 * mm, 268 * mm, "50933 Köln")
+    canvas.drawString(12 * mm, 264 * mm, "Tel. 02 21 / 49 11 820")
     
     # Kasten oben rechts für Akkordnachweis
     canvas.setLineWidth(0.5)
     canvas.rect(95 * mm, 263 * mm, 103 * mm, 24 * mm)
     canvas.setFont("Helvetica-Bold", 9)
     
-    bv_nr = st.session_state.get('bv_nr', '')
+    bv_nr = get_full_bv_nr(st.session_state.get('bv_nr_sub', ''))
     monat = st.session_state.get('monat', '')
     bv = st.session_state.get('bv', '')
     auftraggeber = st.session_state.get('auftraggeber', '')
@@ -114,8 +126,9 @@ def draw_header_page2(canvas, doc):
     canvas.drawString(12 * mm, 279 * mm, "BLITZSCHUTZ GmbH · Widdersdorfer Straße 260 · 50933 Köln")
     canvas.drawString(12 * mm, 275 * mm, "Telefon: (02 21) 4 91 18 20 · Telefax: (02 21) 4 97 11 24")
     
+    bv_nr = get_full_bv_nr(st.session_state.get('bv_nr_sub', ''))
     canvas.setFont("Helvetica-Bold", 12)
-    canvas.drawString(12 * mm, 265 * mm, f"STUNDENNACHWEIS Nr. {st.session_state.get('bv_nr', '')}")
+    canvas.drawString(12 * mm, 265 * mm, f"STUNDENNACHWEIS Nr. {bv_nr}")
     
     canvas.setFont("Helvetica", 9)
     canvas.drawString(12 * mm, 257 * mm, f"Auftraggeber: {st.session_state.get('auftraggeber', '')}")
@@ -299,7 +312,9 @@ if 'monteure_liste' not in st.session_state:
 with st.expander("📌 Bauvorhaben & Kopfdaten", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        st.session_state['bv_nr'] = st.text_input("BV-Nr.", value=st.session_state.get('bv_nr', ''))
+        c_p1, c_p2 = st.columns([1.5, 2])
+        c_p1.text_input("Präfix", value="P 42 010 -", disabled=True)
+        st.session_state['bv_nr_sub'] = c_p2.text_input("Endnummer (4-stellig)", value=st.session_state.get('bv_nr_sub', ''), placeholder="1234")
         st.session_state['monat'] = st.text_input("Monat", value=st.session_state.get('monat', ''))
         st.session_state['bv'] = st.text_input("Bauvorhaben (Ort/Objekt)", value=st.session_state.get('bv', ''))
     with col2:
@@ -308,7 +323,7 @@ with st.expander("📌 Bauvorhaben & Kopfdaten", expanded=True):
 
 # DYNAMISCHE MONTEUR-ERFASSUNG
 with st.expander("👷 Monteure auf der Baustelle (Dynamisch 1-N)", expanded=True):
-    st.caption("Füge hier genau die Anzahl an Monteuren/Helfern hinzu, die vor Ort sind. Unbenutzte Felder einfach löschen oder nicht anlegen.")
+    st.caption("Füge hier genau die Anzahl an Monteuren/Helfern hinzu, die vor Ort sind.")
     
     neue_liste = []
     for idx, m in enumerate(st.session_state.monteure_liste):
@@ -381,15 +396,26 @@ with tabs[1]:
 
     st.divider()
     st.subheader("Zusatzmaterial (Regie)")
-    col_m1, col_m2 = st.columns([1, 3])
-    m_menge = col_m1.text_input("Menge / Einheit")
-    m_bezeichnung = col_m2.text_input("Bezeichnung (keine Kurzbezeichnung)")
     
+    col_m1, col_m2, col_m3 = st.columns([1.5, 3, 3])
+    m_menge = col_m1.text_input("Menge / Einheit", placeholder="z.B. 5m / 1 Stk")
+    
+    selected_katalog = col_m2.selectbox("Schnellauswahl aus Katalog (Nummer/Name tippbar)", KATALOG_DROPDOWN)
+    m_bezeichnung_manual = col_m3.text_input("Oder freie Bezeichnung", placeholder="Nur falls nicht im Katalog")
+
     if st.button("➕ Material hinzufügen"):
-        if m_bezeichnung:
-            zusatz_mat_liste.append({'menge': m_menge, 'bezeichnung': m_bezeichnung})
+        final_bezeichnung = ""
+        if selected_katalog != "-- Manuelle Eingabe --":
+            final_bezeichnung = selected_katalog
+        elif m_bezeichnung_manual.strip():
+            final_bezeichnung = m_bezeichnung_manual.strip()
+
+        if final_bezeichnung:
+            zusatz_mat_liste.append({'menge': m_menge, 'bezeichnung': final_bezeichnung})
             st.session_state['zusatz_mat_liste'] = zusatz_mat_liste
             st.success("Material hinzugefügt!")
+        else:
+            st.warning("Bitte wähle ein Material aus oder gib eine manuelle Bezeichnung ein.")
 
     if zusatz_mat_liste:
         st.table(zusatz_mat_liste)
@@ -397,7 +423,8 @@ with tabs[1]:
 # TAB 3: PDF ERSTELLEN
 with tabs[2]:
     st.subheader("Fertiges PDF-Formular erstellen")
-    st.info("Das generierte PDF erzeugt Seite 1 als Akkordzettel (mit vorgedrucktem Material) und Seite 2 als echten Stundennachweis.")
+    full_bv_nr_display = get_full_bv_nr(st.session_state.get('bv_nr_sub', ''))
+    st.info(f"Projektnummer auf PDF: **{full_bv_nr_display}**")
     
     if st.button("🚀 PDF jetzt erzeugen", type="primary"):
         pdf_bytes = generate_pdf(
@@ -407,7 +434,7 @@ with tabs[2]:
             monteure=st.session_state.monteure_liste
         )
         
-        filename = f"ITTNER_{st.session_state.get('bv_nr', 'Abrechnung')}.pdf"
+        filename = f"ITTNER_{full_bv_nr_display.replace(' ', '_')}.pdf"
         
         st.download_button(
             label="📥 PDF Herunterladen",
