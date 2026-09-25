@@ -9,7 +9,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# Versuche optional google.generativeai zu importieren (falls installiert)
+# Versuche google.generativeai zu importieren
 try:
     import google.generativeai as genai
     HAS_GENAI = True
@@ -268,7 +268,6 @@ if 'monteure' not in st.session_state:
 def on_rolle_change(idx):
     selected_rolle = st.session_state[f"m_rolle_{idx}"]
     st.session_state.monteure[idx]['rolle'] = selected_rolle
-    # Stundensatz im Input-Feld sofort anpassen
     st.session_state[f"m_satz_{idx}"] = LOHN_ROLLEN[selected_rolle]
     st.session_state.monteure[idx]['satz'] = LOHN_ROLLEN[selected_rolle]
 
@@ -413,6 +412,9 @@ st.sidebar.markdown("""
 * **OM-Akkordzuschlag:** +0,08 €/AW
 """)
 
+# API Key Eingabe in der Sidebar (bleibt beim Arbeiten erhalten)
+api_key = st.sidebar.text_input("Gemini API Key für Foto-AI", type="password", key="sidebar_api_key")
+
 lohn_faktor_pct = st.sidebar.slider("Lohnsatz Anpassungsfaktor (%)", min_value=50, max_value=200, value=100, step=5)
 faktor = lohn_faktor_pct / 100.0
 
@@ -422,7 +424,7 @@ st.subheader("1. Positionen erfassen (Akkord)")
 tab_katalog, tab_frei, tab_foto = st.tabs([
     "Katalogauswahl", 
     "Freie Position / Textzeile", 
-    "📷 Notizzettel Scannen (Foto-AI)"
+    "📷 Stundenzettel / Foto Scannen (Auto-AI)"
 ])
 
 with tab_katalog:
@@ -482,44 +484,56 @@ with tab_frei:
             st.error("Bitte mindestens eine Bezeichnung angeben.")
 
 with tab_foto:
-    st.markdown("### 📸 Notizzettel / Regiezettel abfotografieren")
+    st.markdown("### 📸 Stundenzettel / Aufmaß-Foto einlesen")
     
-    api_key = st.text_input("Gemini API Key (für KI-Analyse)", type="password", key="gemini_api_key")
-    uploaded_file = st.file_uploader("Foto des Notizzettels hochladen", type=["jpg", "jpeg", "png", "heic"])
+    uploaded_file = st.file_uploader("Foto hier hochladen oder direkt mit dem Smartphone knipsen", type=["jpg", "jpeg", "png", "heic"])
 
-    if uploaded_file:
+    # AUTOMATISCHE VERARBEITUNG BEIM UPLOAD
+    if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Hochgeladenes Foto", use_container_width=True)
+        st.image(image, caption="Hochgeladener Zettel", width=400)
 
-        if st.button("🤖 Notizzettel analysieren & Massen übernehmen"):
-            if not api_key:
-                st.error("Bitte gib zuerst einen Gemini API Key ein.")
-            elif not HAS_GENAI:
-                st.error("Das Paket 'google-generativeai' ist auf dem Server nicht installiert.")
-            else:
-                with st.spinner("KI liest Handschrift & Daten aus..."):
+        if not api_key:
+            st.warning("⚠️ Bitte gib zuerst links in der Seitenleiste (Sidebar) deinen Gemini API Key ein, damit das Foto automatisch analysiert werden kann.")
+        elif not HAS_GENAI:
+            st.error("Das Paket 'google-generativeai' fehlt. Bitte führe 'pip install google-generativeai' aus.")
+        else:
+            # Hash oder Name nutzen, um Mehrfachausführung bei Rerender zu vermeiden
+            file_id = f"{uploaded_file.name}_{uploaded_file.size}"
+            if st.session_state.get('last_processed_file') != file_id:
+                with st.spinner("🤖 KI liest Handschrift, Material & Stunden automatisch aus..."):
                     try:
                         genai.configure(api_key=api_key)
                         model = genai.GenerativeModel('gemini-1.5-flash')
 
                         prompt = f"""
-                        Analysiere diesen Aufmaß-Notizzettel für Blitzschutzarbeiten.
-                        Extrahiere alle Artikel, Positionsnummern und Mengen.
+                        Analysiere diesen handgeschriebenen oder gedruckten Stundenzettel / Aufmaßzettel für Blitzschutzarbeiten.
+                        Extracte:
+                        1. Material- / Akkordpositionen
+                        2. Monteure und deren gearbeitete Stunden
+
                         Katalog-Referenz: {KATALOG_RAW}
                         
-                        Gib NUR ein JSON-Array zurück im Format:
-                        [
-                            {{"pos": "001", "menge": 10.0}},
-                            {{"pos": "028", "menge": 5.0}}
-                        ]
+                        Gib NUR ein einziges JSON-Objekt zurück mit genau diesem Aufbau:
+                        {{
+                            "positionen": [
+                                {{"pos": "001", "menge": 10.0}},
+                                {{"pos": "028", "menge": 5.0}}
+                            ],
+                            "monteure": [
+                                {{"name": "Max Mustermann", "stunden": 8.0}}
+                            ]
+                        }}
+                        Antworte ausschließlich im JSON-Format ohne Markdown-Codeblöcke.
                         """
 
                         response = model.generate_content([prompt, image])
                         clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                        erfasste_daten = json.loads(clean_json)
+                        ergebnis = json.loads(clean_json)
 
-                        hinzugefuegt = 0
-                        for item in erfasste_daten:
+                        # Positionen eintragen
+                        pos_hinzugefuegt = 0
+                        for item in ergebnis.get("positionen", []):
                             pos_nr = str(item.get("pos")).zfill(3)
                             menge_val = float(item.get("menge", 1.0))
 
@@ -536,12 +550,28 @@ with tab_foto:
                                     'Angepasster_Satz': angepasster_satz,
                                     'Gesamt_EUR': menge_val * angepasster_satz
                                 })
-                                hinzugefuegt += 1
+                                pos_hinzugefuegt += 1
 
-                        st.success(f"{hinzugefuegt} Positionen vom Zettel erfolgreich ins Aufmaß übernommen!")
+                        # Monteure eintragen (falls auf dem Zettel erkannt)
+                        m_list = ergebnis.get("monteure", [])
+                        if m_list:
+                            st.session_state.monteure = []
+                            for m in m_list:
+                                m_name = m.get("name", "Monteur")
+                                m_std = float(m.get("stunden", 8.0))
+                                st.session_state.monteure.append({
+                                    'name': m_name,
+                                    'rolle': 'Monteur',
+                                    'stunden': m_std,
+                                    'satz': LOHN_ROLLEN['Monteur']
+                                })
+
+                        st.session_state['last_processed_file'] = file_id
+                        st.success(f"✅ Fertig! {pos_hinzugefuegt} Materialpositionen und {len(m_list)} Monteure wurden direkt übernommen.")
                         st.rerun()
+
                     except Exception as e:
-                        st.error(f"Fehler bei der KI-Analyse: {e}")
+                        st.error(f"Fehler bei der automatischen KI-Analyse: {e}")
 
 # Tabelle & Löschen
 if st.session_state.positionen:
