@@ -21,7 +21,7 @@ LOHN_ROLLEN = {
 OM_ZUSCHLAG_AKKORD = 0.08  # pro Arbeitswert/Position im Akkord
 
 # ==========================================
-# 2. KATALOG-DATEN (ITTNER BLITZSCHUTZ 2026)
+# 2. KATALOG-DATEN (EXAKT ABGEGLICHEN)
 # ==========================================
 KATALOG_RAW = [
     # --- Seite 1 ---
@@ -253,7 +253,6 @@ if 'positionen' not in st.session_state:
 
 if 'monteure' not in st.session_state:
     st.session_state.monteure = [
-        {'name': 'Obermonteur 1', 'rolle': 'Obermonteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Obermonteur']},
         {'name': 'Monteur 1', 'rolle': 'Monteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Monteur']}
     ]
 
@@ -506,44 +505,49 @@ else:
 
 st.markdown("---")
 
-# --- ABSCHNITT 2: MONTEURE & STUNDEN ---
+# --- ABSCHNITT 2: MONTEURE & STUNDEN (FLEXIBEL AB 1 MONTEUR) ---
 st.subheader("2. Stundennachweis Monteure (Regie)")
 
-col_m_left, col_m_right = st.columns([3, 2])
+st.write("**Monteure verwalten (Einzelmonteur oder Team)**")
 
-with col_m_left:
-    st.write("**Monteure verwalten & Rollen zuweisen**")
-    for idx, m in enumerate(st.session_state.monteure):
-        cm1, cm2, cm3, cm4 = st.columns([2, 2, 1, 1.5])
-        
-        name_val = cm1.text_input(f"Name", value=m.get('name', f'Monteur {idx+1}'), key=f"m_name_{idx}")
-        
-        # Rollenauswahl mit Callback -> aktualisiert den Stundensatz sofort sichtbar auf dem Bildschirm
-        rolle_val = cm2.selectbox(
-            "Rolle", 
-            options=list(LOHN_ROLLEN.keys()), 
-            index=list(LOHN_ROLLEN.keys()).index(m.get('rolle', 'Monteur')), 
-            key=f"m_rolle_{idx}",
-            on_change=update_stundensatz_callback,
-            args=(idx,)
-        )
-        
-        stunden_val = cm3.number_input("Std.", value=float(m.get('stunden', 8.0)), step=0.5, key=f"m_std_{idx}")
-        satz_val = cm4.number_input("Stundensatz (€)", value=float(m.get('satz', LOHN_ROLLEN[rolle_val])), step=0.5, key=f"m_satz_{idx}")
-        
-        # Session-State konsistent als Kleinschreibung sichern
-        st.session_state.monteure[idx] = {
-            'name': name_val,
-            'rolle': rolle_val,
-            'stunden': stunden_val,
-            'satz': satz_val
-        }
+for idx, m in enumerate(st.session_state.monteure):
+    cm1, cm2, cm3, cm4, cm_del = st.columns([2, 2, 1, 1.5, 0.8])
+    
+    name_val = cm1.text_input(f"Name #{idx+1}", value=m.get('name', f'Monteur {idx+1}'), key=f"m_name_{idx}")
+    
+    rolle_val = cm2.selectbox(
+        "Rolle", 
+        options=list(LOHN_ROLLEN.keys()), 
+        index=list(LOHN_ROLLEN.keys()).index(m.get('rolle', 'Monteur')), 
+        key=f"m_rolle_{idx}",
+        on_change=update_stundensatz_callback,
+        args=(idx,)
+    )
+    
+    stunden_val = cm3.number_input("Std.", value=float(m.get('stunden', 8.0)), step=0.5, key=f"m_std_{idx}")
+    satz_val = cm4.number_input("Stundensatz (€)", value=float(m.get('satz', LOHN_ROLLEN[rolle_val])), step=0.5, key=f"m_satz_{idx}")
+    
+    with cm_del:
+        st.write(" ")
+        st.write(" ")
+        if len(st.session_state.monteure) > 1:
+            if st.button("🗑️", key=f"btn_del_m_{idx}"):
+                st.session_state.monteure.pop(idx)
+                st.rerun()
 
+    st.session_state.monteure[idx] = {
+        'name': name_val,
+        'rolle': rolle_val,
+        'stunden': stunden_val,
+        'satz': satz_val
+    }
+
+col_m_add, _ = st.columns([1, 3])
+with col_m_add:
     if st.button("➕ weiteren Monteur hinzufügen"):
         st.session_state.monteure.append({'name': f'Monteur {len(st.session_state.monteure)+1}', 'rolle': 'Monteur', 'stunden': 8.0, 'satz': LOHN_ROLLEN['Monteur']})
         st.rerun()
 
-# Robuster Pandas-Aufbau (verhindert den KeyError)
 df_mont = pd.DataFrame(st.session_state.monteure)
 if not df_mont.empty and 'stunden' in df_mont.columns and 'satz' in df_mont.columns:
     df_mont['Kosten'] = df_mont['stunden'] * df_mont['satz']
