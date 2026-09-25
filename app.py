@@ -2,10 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 import io
+import json
+from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+
+# Versuche optional google.generativeai zu importieren (falls installiert)
+try:
+    import google.generativeai as genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
 
 # ==========================================
 # 1. KONFIGURATION & STYLES
@@ -18,10 +27,10 @@ LOHN_ROLLEN = {
     "Monteur": 20.57,
     "Helfer": 18.52
 }
-OM_ZUSCHLAG_AKKORD = 0.08  # pro Arbeitswert/Position im Akkord
+OM_ZUSCHLAG_AKKORD = 0.08  # pro Arbeitswert im Akkord
 
 # ==========================================
-# 2. KATALOG-DATEN (EXAKT ABGEGLICHEN)
+# 2. KATALOG-DATEN (ITTNER BLITZSCHUTZ 2026)
 # ==========================================
 KATALOG_RAW = [
     # --- Seite 1 ---
@@ -29,13 +38,13 @@ KATALOG_RAW = [
     ("002", "EL/10", "Erdleitung verz. 10 mm", 0.62),
     ("004", "EL/BE V4A 30 x 3,5", "Erdleitung Bandstahl V4A 30 x 3,5 mm", 0.81),
     ("006", "EL/V4A", "Erdleitung V4A-Stahl 10 mm DIN 1.4571", 0.81),
-    ("010", "FE/BE", "Fundamenterde 30 x 3,5 Bandstahl 30 x 3,5 mm", 1.05),
-    ("011", "FE/EL 10", "Fundamenterde verz. 10 mm", 1.05),
+    ("010", "FE/EL 10", "Fundamenterde verz. 10 mm", 1.05),
+    ("011", "FE/BE 30 x 3,5", "Fundamenterde Bandstahl 30 x 3,5 mm", 1.05),
     ("015", "BSA VA", "Blitzschutzanker", 16.09),
     ("024", "KV/10/16", "Diagonalverbinder 10 mm Diagonal und Bandeisen", 0.91),
     ("025", "KV/10/VA", "Diagonalverbinder/VA 10 mm Diagonal flach/rund", 0.91),
-    ("026", "AMK", "Armierungsklemmen", 1.10),
-    ("028", "KV/10/10 VA", "Kreuzverbinder 10 mm VA-Stahl", 0.88),
+    ("026", "KV/10/VA", "Kreuzverbinder 10 mm VA-Stahl", 1.10),
+    ("028", "AMK", "Armierungsklemmen", 0.88),
     ("029", "SV-Klemme", "Multi-Klemme V4A", 0.91),
     ("030", "Denso", "Densoband", 0.24),
     ("036", "EG/1-50", "Erdgraben 50 cm tief ohne Erdleitung", 5.17),
@@ -49,10 +58,10 @@ KATALOG_RAW = [
     ("044", "EG/9", "Betonfuge lfdm.", 7.97),
     ("045", "Schachtgr. f. Tief", "Schachtgrube für Tiefenerder bei 0,80 m Tiefe", 5.10),
     ("050", "EST/V4A", "Erdeinführung rund V4A 10 mm, 1500 mm", 1.76),
-    ("051", "EST/VA", "Erdeinführungsstange Niro ohne WS, PK und Denso, 1200 mm", 1.76),
-    ("054", "EST/Cu", "Erdeinführungsstange aus Kupfer, ohne WS, PK, KV, Denso", 1.76),
+    ("051", "EST/VA einfach", "Erdeinführungsstange Niro ohne WS, PK und Denso, 1200 mm", 1.76),
+    ("054", "EST/Cu/ einfach", "Erdeinführungsstange aus Kupfer, ohne WS, PK, KV, Denso", 1.76),
     ("055", "TKA/Graug.", "Trennstellenkasten aus Grauguß mit Trennstelle", 2.93),
-    ("056", "Wanddurchführung V4A", "Druckwasserdichte Erder- und Wanddurchführung mit MV-Klemme Niro (V4A), Länge 500-700 mm, ohne Bohrung", 3.84),
+    ("056", "Wanddurchführung", "Druckwasserdichte Erder- und Wanddurchführung mit MV-Klemme Niro (V4A)", 3.84),
     ("057", "Rev.-Türen", "Unterputz-Trennstellen", 2.93),
 
     # --- Seite 2 ---
@@ -61,11 +70,11 @@ KATALOG_RAW = [
     ("061", "PK/Alu 16/8", "Prüfkupplung/Aluminium Trennklemme/Aluminium", 0.62),
     ("062", "PK/8/8 verz.", "Prüfkupplung/Trennklemme 8/8 verzinkt, Dach", 1.19),
     ("063", "Nummern", "Nummernschilder, geklemmt oder geschraubt m. Überl.", 0.59),
-    ("064", "PK/Vario VA FL/RD", "Trennklemme Vario VA FL/Rd", 0.62),
-    ("065", "Pot./Niro", "Erdungs- oder Potentialausgleichsschiene Nirosta mit 6 Anschlüssen, abgewinkelt", 3.46),
+    ("064", "PK/Vario/VA FL/RD", "Trennklemme Vario VA FL/Rd", 0.62),
+    ("065", "Pot./Niro", "Erdungs- oder Potentialausgleichsschiene Nirosta mit 6 Anschlüssen", 3.46),
     ("066", "Potschiene klein", "Erdungs- oder Potentialausgleichsschiene, klein", 3.46),
     ("067", "Potschiene groß", "Erdungs- oder Potschiene groß, K-12", 3.46),
-    ("068", "Varioklemme verz.", "Varioklemme/verz.", 0.62),
+    ("068", "Varioklemme/verz.", "Varioklemme/verz.", 0.62),
     ("069", "PK+VA Winkel", "Prüfklemme mit VA Winkel Pröpster 111 704", 1.74),
     ("070", "Anschl. E", "Anschluß BE 30 x 3,5 mm auf Potentialausgleich", 1.26),
     ("072", "PK/Vario Cu FL/RD", "Varioklemme Cu FL/Rd", 0.62),
@@ -87,53 +96,52 @@ KATALOG_RAW = [
     ("128", "OL/BE verz. 30 x 3,5", "Oberleitung verz. Bandstahl 30 x 3,5 mm", 1.44),
 
     # --- Seite 3 ---
-    ("130", "OL/BE V4A 30 x 3,5", "Oberleitung Bandstahl V4A 30 x 3,5 mm", 2.14),
-    ("140", "Steildach/Schiefer", "Steildach-Zulage bei Schieferdacheindeckung", 0.30),
-    ("141", "Zulage > 10 m", "Zulage für Arbeiten über 10 m Höhe zwischen Dachkante und Prüfkupplung mit Leiter", 0.30),
-    ("149", "OL/alt richten", "vorhandene Oberleitung ausrichten und wieder verlegen", 0.70),
+    ("130", "OL/BE/V4A 30 x 3,5", "Oberleitung Bandstahl V4A 30 x 3,5 mm", 2.14),
+    ("140", "Steildach/Zulage", "Steildach-Zulage bei Schieferdacheindeckung", 0.30),
+    ("141", "Zul. üb. 10 m", "Zulage für Arbeiten über 10 m Höhe", 0.30),
+    ("149", "OL/alt/richten", "vorhandene Oberleitung ausrichten und wieder verlegen", 0.70),
     ("150", "Dmtg.", "Demontage pro m incl. Stützen und Verbinder incl. Entsorgung", 0.61),
     ("158", "KFS/Alu 3,0", "Fangstange 3,0 m Alu", 3.52),
     ("159", "KFS/Cu 1,5", "Fangstange 1,5 m Cu", 3.52),
     ("160", "KFS/Alu 1,5", "Fangstange 1,5 m Alu", 3.52),
-    ("161", "KFS/Alu 1,0", "KFS/Alu/ ohne WS und KV 1,0 m einfach", 3.52),
-    ("162", "Fangstange/VA 1,0", "Fangstange VA 1,0 m", 3.52),
-    ("165", "KFS/Cu 1,2", "Kaminfangstange/Kupfer einfach ohne WS und KV, 1200 mm", 3.52),
-    ("166", "Fangstange/Alu 2,0", "Fangstange Alu 2,0 m", 3.52),
-    ("167", "Fangstange/Alu 2,5", "Fangstange Alu 2,5 m", 3.52),
-    ("168", "Fangstange/Alu 4,0", "Fangstange Alu 4,0 m", 3.52),
-    ("169", "Fangstange/Alu 5,0", "Fangstange Alu 5,0 m", 3.52),
+    ("161", "KFS/Alu/ einfach", "Kaminfangstange/Aluminium ohne WS und KV 1,0 m", 3.52),
+    ("162", "Fangstange/VA 1,0 m", "Fangstange VA 1,0 m", 3.52),
+    ("165", "KFS/Cu/ einfach", "Kaminfangstange/Kupfer ohne WS und KV, 1200 mm", 3.52),
+    ("166", "Fangstange/Alu 2,0 m", "Fangstange Alu 2,0 m", 3.52),
+    ("167", "Fangstange/Alu 2,5 m", "Fangstange Alu 2,5 m", 3.52),
+    ("168", "Fangstange/Alu 4,0 m", "Fangstange Alu 4,0 m", 3.52),
+    ("169", "Fangstange/Alu 5,0 m", "Fangstange Alu 5,0 m", 3.52),
     ("170", "Betonsockel 17 kg", "Betonsockel 17 kg", 2.23),
     ("171", "Auf-Spitze/Alu", "Auffangspitze Aluminium", 0.30),
     ("172", "Auf-Spitze/RG", "Auffangspitze Rotguss", 0.30),
-    ("173", "Beton-Auff. 1,5 m", "Beton-Auffangstange 1,5 m mit Betonsockel u. PVC-Unterlegplatte kompl.", 4.49),
-    ("174", "Beton-Auff. 2,0 m", "Beton-Auffangstange 2,0 m mit Betonsockel u. PVC-Unterlegplatte kompl.", 4.49),
-    ("175", "Beton-Auff. 2,5 m", "Beton-Auffangstange 2,5 m mit Betonsockel u. PVC-Unterlegplatte kompl.", 4.49),
-    ("176", "Beton-Auff. 3,0 m", "Beton-Auffangstange 3,0 m mit Betonsockel u. PVC-Unterlegplatte kompl.", 4.49),
-    ("177", "Distanzhalter 690/16", "Distanzhalter 690/16 mit Befestigungsplatte 106123", 3.63),
-    ("178", "Distanzhalter 1030/16", "Distanzhalter 1030/16 mit Befestigungsplatte 106110", 3.63),
+    ("173", "Beton-Auff. 1,5 m", "Beton-Auffangstange 1,5 m mit Betonsockel kompl.", 4.49),
+    ("174", "Beton-Auff. 2,0 m", "Beton-Auffangstange 2,0 m mit Betonsockel kompl.", 4.49),
+    ("175", "Beton-Auff. 2,5 m", "Beton-Auffangstange 2,5 m mit Betonsockel kompl.", 4.49),
+    ("176", "Beton-Auff. 3,0 m", "Beton-Auffangstange 3,0 m mit Betonsockel kompl.", 4.49),
+    ("177", "Distanzhalter 690/16", "Distanzhalter 690/16 mit Befestigungsplatte", 3.63),
+    ("178", "Distanzhalter 1030/16", "Distanzhalter 1030/16 mit Befestigungsplatte", 3.63),
     ("179", "Distanzhalter 690/8", "Distanzhalter 690/8 mit Befestigungsplatte", 3.63),
-    ("180", "Alu/Brücke", "Alu-Brücken, 30 x 2 mm ohne Anfertigung", 1.73),
+    ("180", "Alu/Br.", "Alu-Brücken, 30 x 2 mm ohne Anfertigung", 1.73),
     ("181", "Alu/Lasche", "Alu-Lasche 30 x 3 mm ohne Anfertigung, m.Niet.", 1.10),
     ("182", "Stangenklemme 16/8", "Stangenklemme 16/8", 0.62),
     ("183", "Cu/Lasche", "Kupfer-Lasche, 30 x 3 mm ohne Anfertigung", 1.08),
 
     # --- Seite 4 ---
     ("184", "Winkel VA", "Winkel VA", 1.10),
-    ("186", "Anla/Schweiß", "Anschlußlasche BE 30 x 3,5 Befestigung mittels Schweißung", 2.97),
-    ("187", "Brücke/flex, Band", "Brücke flexibel, Dehnungsband Alu", 1.73),
-    ("188", "Brücke/flex, rund", "Brücke flexibel und rund", 1.73),
+    ("186", "Anla/Schwei", "Anschlußlasche BE 30 x 3,5 Schweißung", 2.97),
+    ("187", "Brücke/flex, rund", "Brücke flexibel und rund", 1.73),
+    ("188", "Brücke/flex, Band", "Brücke flexibel, Dehnungsband Alu", 1.73),
     ("189", "Anla/Alu", "Anschlußlasche Alu mit Klemmbock", 1.14),
     ("190", "S-Bügel Alu", "S-Bügel Alu", 0.60),
-    ("191", "Anschluss-Set 6 mm", "Anschluss-Set Seilanlage 6 mm zum Verbinden von Seilsicherungssystemen an die vorhandene Fangeinrichtung", 2.84),
-    ("192", "Anschluss-Set 8 mm", "Anschluss-Set Seilanlage 8 mm zum Verbinden von Seilsicherungssystemen an die vorhandene Fangeinrichtung", 2.84),
-    ("193", "SS/Cu", "Schrägenstützen/Kupfer", 1.27),
-    ("195", "SS/Niro", "Schrägenstützen/Nirosta m. Klippschelle", 1.27),
+    ("191", "Anschluss-Set 6 mm", "Anschluss-Set Seilanlage 6 mm", 2.84),
+    ("192", "Anschluss-Set 8 mm", "Anschluss-Set Seilanlage 8 mm", 2.84),
+    ("193", "SS/Niro", "Schrägenstützen/Nirosta m. Klippschelle", 1.27),
     ("217", "FS/Niro/Klipp", "Firststütze/Nirosta mit Klippschelle", 1.29),
     ("219", "FS/Cu/Klipp", "Firststütze/Kupfer mit Klippschelle", 1.29),
     ("230", "PS/a", "Flachdachstütze/Beton 0 bis 500 Stück", 0.72),
     ("235", "PS/a Klipp", "Flachdachstütze/VA mit Klippschelle/VA", 0.79),
     ("238", "PS/a alt", "Flachdachstütze vorhanden", 0.58),
-    ("242", "PS/b", "Flachdachstütze mit Heiß- o. Kaltklebemasse aufkl.", 1.45),
+    ("242", "PS/b", "Flachdachstütze mit Klebemasse aufkl.", 1.45),
     ("246", "Wellpl.-Stütze", "Stütze für Wellplattendach", 1.29),
     ("247", "SDS", "Schrägenstützen für Schieferdächer", 2.02),
     ("248", "SDS Cu", "Schieferstützen Cu", 1.95),
@@ -197,8 +205,8 @@ KATALOG_RAW = [
     ("370", "MD/1", "Mauerdurchbruch/Ziegelmauerwerk", 4.34),
     ("375", "MD/Stahlb.", "Mauerdurchbruch in Stahlbeton", 7.29),
     ("376", "MD/Metall", "Mauerdurchbruch/Metall", 2.34),
-    ("390", "Blitzstromableiter TN-C", "FLT-SEC-P-T1-3C-350/25-FM ohne Verdrahtungsmaterial und Freischalten der Anlage", 10.98),
-    ("391", "Blitzstromableiter TN-S", "FLT-SEC-P-T1-3S-350/25 ohne Verdrahtungsmaterial und Freischalten der Anlage", 10.98),
+    ("390", "Blitzstromableiter TN-C", "FLT-SEC-P-T1-3C-350/25-FM ohne Verdrahtungsmaterial", 10.98),
+    ("391", "Blitzstromableiter TN-S", "FLT-SEC-P-T1-3S-350/25 ohne Verdrahtungsmaterial", 10.98),
     ("392", "Blitzstromableiter TNC", "951 300 Dehnventil TNC 255 ohne Verdrahtungsmaterial", 10.98),
     ("393", "Blitzstromableiter TNS", "951 400 Dehnventil TNS ohne Verdrahtungsmaterial", 10.98),
     ("394", "Blitzstromableiter TT", "951 310 Dehnventil TT ohne Verdrahtungsmaterial", 10.98),
@@ -257,10 +265,12 @@ if 'monteure' not in st.session_state:
     ]
 
 # Callback für direkte Satzänderung bei Rollenwechsel im UI
-def update_stundensatz_callback(idx):
-    neue_rolle = st.session_state[f"m_rolle_{idx}"]
-    st.session_state.monteure[idx]['rolle'] = neue_rolle
-    st.session_state.monteure[idx]['satz'] = LOHN_ROLLEN[neue_rolle]
+def on_rolle_change(idx):
+    selected_rolle = st.session_state[f"m_rolle_{idx}"]
+    st.session_state.monteure[idx]['rolle'] = selected_rolle
+    # Stundensatz im Input-Feld sofort anpassen
+    st.session_state[f"m_satz_{idx}"] = LOHN_ROLLEN[selected_rolle]
+    st.session_state.monteure[idx]['satz'] = LOHN_ROLLEN[selected_rolle]
 
 # ==========================================
 # 4. PDF GENERATION FUNCTION
@@ -409,7 +419,11 @@ faktor = lohn_faktor_pct / 100.0
 # --- ABSCHNITT 1: POSITIONEN ERFASSEN ---
 st.subheader("1. Positionen erfassen (Akkord)")
 
-tab_katalog, tab_frei = st.tabs(["Katalogauswahl", "Freie Position / Textzeile"])
+tab_katalog, tab_frei, tab_foto = st.tabs([
+    "Katalogauswahl", 
+    "Freie Position / Textzeile", 
+    "📷 Notizzettel Scannen (Foto-AI)"
+])
 
 with tab_katalog:
     col_p1, col_p2, col_p3 = st.columns([3, 1, 1])
@@ -467,6 +481,68 @@ with tab_frei:
         else:
             st.error("Bitte mindestens eine Bezeichnung angeben.")
 
+with tab_foto:
+    st.markdown("### 📸 Notizzettel / Regiezettel abfotografieren")
+    
+    api_key = st.text_input("Gemini API Key (für KI-Analyse)", type="password", key="gemini_api_key")
+    uploaded_file = st.file_uploader("Foto des Notizzettels hochladen", type=["jpg", "jpeg", "png", "heic"])
+
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Hochgeladenes Foto", use_container_width=True)
+
+        if st.button("🤖 Notizzettel analysieren & Massen übernehmen"):
+            if not api_key:
+                st.error("Bitte gib zuerst einen Gemini API Key ein.")
+            elif not HAS_GENAI:
+                st.error("Das Paket 'google-generativeai' ist auf dem Server nicht installiert.")
+            else:
+                with st.spinner("KI liest Handschrift & Daten aus..."):
+                    try:
+                        genai.configure(api_key=api_key)
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+
+                        prompt = f"""
+                        Analysiere diesen Aufmaß-Notizzettel für Blitzschutzarbeiten.
+                        Extrahiere alle Artikel, Positionsnummern und Mengen.
+                        Katalog-Referenz: {KATALOG_RAW}
+                        
+                        Gib NUR ein JSON-Array zurück im Format:
+                        [
+                            {{"pos": "001", "menge": 10.0}},
+                            {{"pos": "028", "menge": 5.0}}
+                        ]
+                        """
+
+                        response = model.generate_content([prompt, image])
+                        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+                        erfasste_daten = json.loads(clean_json)
+
+                        hinzugefuegt = 0
+                        for item in erfasste_daten:
+                            pos_nr = str(item.get("pos")).zfill(3)
+                            menge_val = float(item.get("menge", 1.0))
+
+                            treffer = df_katalog[df_katalog['Pos'] == pos_nr]
+                            if not treffer.empty:
+                                row = treffer.iloc[0]
+                                angepasster_satz = row['Lohn_Basis'] * faktor
+                                st.session_state.positionen.append({
+                                    'Pos': row['Pos'],
+                                    'Kurzbezeichnung': row['Kurzbezeichnung'],
+                                    'Leistungsbezeichnung': row['Leistungsbezeichnung'],
+                                    'Menge': menge_val,
+                                    'Basis_Satz': row['Lohn_Basis'],
+                                    'Angepasster_Satz': angepasster_satz,
+                                    'Gesamt_EUR': menge_val * angepasster_satz
+                                })
+                                hinzugefuegt += 1
+
+                        st.success(f"{hinzugefuegt} Positionen vom Zettel erfolgreich ins Aufmaß übernommen!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Fehler bei der KI-Analyse: {e}")
+
 # Tabelle & Löschen
 if st.session_state.positionen:
     df_pos = pd.DataFrame(st.session_state.positionen)
@@ -480,7 +556,7 @@ if st.session_state.positionen:
     # Schnell-Löschen per Positionsnummer
     col_del1, col_del2, col_del3 = st.columns([2, 1, 2])
     with col_del1:
-        del_code = st.text_input("Schnell-Löschen (Pos-Nr. eingeben & Enter)", placeholder="z. B. 001, 011 oder Frei")
+        del_code = st.text_input("Schnell-Löschen (Pos-Nr. eingeben & Enter)", placeholder="z. B. 001, 028 oder Frei")
     with col_del2:
         st.write(" ")
         st.write(" ")
@@ -520,7 +596,7 @@ for idx, m in enumerate(st.session_state.monteure):
         options=list(LOHN_ROLLEN.keys()), 
         index=list(LOHN_ROLLEN.keys()).index(m.get('rolle', 'Monteur')), 
         key=f"m_rolle_{idx}",
-        on_change=update_stundensatz_callback,
+        on_change=on_rolle_change,
         args=(idx,)
     )
     
